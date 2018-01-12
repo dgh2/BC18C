@@ -2,12 +2,15 @@ package src;
 
 import bc.*;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 public class Ai {
     private GameController gc;
     private Set<MapLocation> karboniteLocations = null;
+    private Map<UnitType, Set<Unit>> myUnits = new HashMap<UnitType, Set<Unit>>();
 
     //Put no logic here in the constructor, exceptions can't be handled this early
     public Ai(GameController gc) {
@@ -16,6 +19,7 @@ public class Ai {
 
     //Called each turn by Player.java
     public void run() {
+        myUnits.clear();
         if (karboniteLocations == null) {
             karboniteLocations = Util.getInitialKarboniteLocations(gc.startingMap(Planet.Earth));
         }
@@ -141,16 +145,19 @@ public class Ai {
     //Get all of my units of a particular type
     private Set<Unit> getMyUnits(UnitType unitType) {
         System.out.println("getMyUnits called with type: " + unitType.name());
-        Set<Unit> units = new HashSet<>();
-        for (int i = 0; i < gc.myUnits().size(); i++) {
-            System.out.println("getMyUnits checking index: " + i);
-            if (gc.myUnits().get(i).unitType().equals(unitType)) {
-                System.out.println("getMyUnits adding unit with index: " + i);
-                units.add(gc.myUnits().get(i));
+        if (!myUnits.containsKey(unitType)) {
+            Set<Unit> units = new HashSet<>();
+            for (int i = 0; i < gc.myUnits().size(); i++) {
+                System.out.println("getMyUnits checking index: " + i);
+                if (gc.myUnits().get(i).unitType().equals(unitType)) {
+                    System.out.println("getMyUnits adding unit with index: " + i);
+                    units.add(gc.myUnits().get(i));
+                }
             }
+            myUnits.put(unitType, units);
         }
-        System.out.println("getMyUnits result: " + units.size() + " " + unitType.name());
-        return units;
+        System.out.println("getMyUnits result: " + myUnits.get(unitType).size() + " " + unitType.name());
+        return myUnits.get(unitType);
     }
 
     //Move a unit toward the goal location
