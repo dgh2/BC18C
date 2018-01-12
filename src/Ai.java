@@ -36,7 +36,7 @@ public class Ai {
                     UnitType wantedStructure = myFactories.size() < 2 * myRockets.size() ? UnitType.Factory : UnitType.Rocket;
 
                     for (Direction direction : Util.getDirections()) {
-                        if (gc.karbonite() > bc.bcUnitTypeBlueprintCost(wantedStructure)) {
+                        if (gc.karbonite() < bc.bcUnitTypeBlueprintCost(wantedStructure)) {
                             break;
                         }
                         System.out.println("Attempting blueprint: " + unit.id() + " at "
@@ -55,23 +55,23 @@ public class Ai {
                     if (attemptToBuild(unit, UnitType.Factory)) {
                         break;
                     }
-                    for (Direction direction : Util.getDirections()) {
-                        System.out.println("Attempting to replicate: " + unit.id() + " at "
-                                + unit.location().mapLocation() + " to " + direction.name());
-                        if (gc.canReplicate(unit.id(), direction)) {
-                            gc.replicate(unit.id(), direction);
-                            break;
+                    if (gc.karbonite() > 4 * bc.bcUnitTypeReplicateCost(UnitType.Worker)) {
+                        for (Direction direction : Util.getDirections()) {
+                            System.out.println("Attempting to replicate: " + unit.id() + " at "
+                                    + unit.location().mapLocation() + " to " + direction.name());
+                            if (gc.canReplicate(unit.id(), direction)) {
+                                gc.replicate(unit.id(), direction);
+                                break;
+                            }
                         }
                     }
-                    if (unit.workerHasActed() != 0) {
-                        break;
-                    }
-                    for (Direction direction : Util.getDirections()) {
-                        System.out.println("Attempting to move: " + unit.id() + " at "
-                                + unit.location().mapLocation() + " to " + direction.name());
-                        if (gc.isMoveReady(unit.id()) && gc.canMove(unit.id(), direction)) {
-                            gc.moveRobot(unit.id(), direction);
-                            break;
+                    if (unit.movementHeat() == 0) {
+                        for (Direction direction : Util.getDirections()) {
+                            System.out.println("Attempting to move: " + unit.id() + " at "
+                                    + unit.location().mapLocation() + " to " + direction.name());
+                            if (performMove(unit, direction)) {
+                                break;
+                            }
                         }
                     }
                     break;
@@ -85,8 +85,10 @@ public class Ai {
                     break;
                 case Factory:
                     System.out.println("Attempting to produce worker from Factory: " + unit.id() + " at " + unit.location().mapLocation());
-                    if (gc.canProduceRobot(unit.id(), UnitType.Worker)) {
-                        gc.produceRobot(unit.id(), UnitType.Worker);
+                    if (gc.karbonite() > bc.bcUnitTypeFactoryCost(UnitType.Worker)) {
+                        if (gc.canProduceRobot(unit.id(), UnitType.Worker)) {
+                            gc.produceRobot(unit.id(), UnitType.Worker);
+                        }
                     }
                     break;
                 case Rocket:
@@ -98,8 +100,9 @@ public class Ai {
                             gc.launchRocket(unit.id(), target);
                         }
                     } else {
-                        System.out.println("Rocket is waiting for " + (unit.structureMaxCapacity() - unit.structureGarrison().size())
-                                + " more units to launch");
+                        System.out.println("Rocket is waiting for "
+                                + (unit.structureMaxCapacity() - unit.structureGarrison().size())
+                                + " more units until launch");
                     }
                     break;
             }
@@ -149,9 +152,9 @@ public class Ai {
     }
 
     //Move a unit toward the goal location
-    private void moveToward(Unit unit, MapLocation goal) throws IllegalArgumentException {
+    private boolean moveToward(Unit unit, MapLocation goal) throws IllegalArgumentException {
         if (unit.movementHeat() != 0) {
-            return;
+            return false;
         }
         System.out.println("Attempting to moveToward: " + unit.id() + " at "
                 + unit.location().mapLocation() + " to " + goal);
@@ -163,26 +166,24 @@ public class Ai {
             throw new IllegalArgumentException("Unit " + unit.id() + " of type " + unit.unitType().name() + " cannot move");
         }
         Direction heading = unit.location().mapLocation().directionTo(goal);
-        if (gc.isMoveReady(unit.id()) && gc.canMove(unit.id(), heading)) {
-            performMove(unit, heading);
-        } else if (gc.isMoveReady(unit.id()) && gc.canMove(unit.id(), bc.bcDirectionRotateRight(heading))) {
-            performMove(unit, bc.bcDirectionRotateRight(heading));
-        } else if (gc.isMoveReady(unit.id()) && gc.canMove(unit.id(), bc.bcDirectionRotateLeft(heading))) {
-            performMove(unit, bc.bcDirectionRotateLeft(heading));
-        } else if (gc.isMoveReady(unit.id()) && gc.canMove(unit.id(), bc.bcDirectionRotateRight(bc.bcDirectionRotateRight(heading)))) {
-            performMove(unit, bc.bcDirectionRotateRight(bc.bcDirectionRotateRight(heading)));
-        } else if (gc.isMoveReady(unit.id()) && gc.canMove(unit.id(), bc.bcDirectionRotateLeft(bc.bcDirectionRotateLeft(heading)))) {
-            performMove(unit, bc.bcDirectionRotateLeft(bc.bcDirectionRotateLeft(heading)));
-        }
+        return performMove(unit, heading)
+                || performMove(unit, bc.bcDirectionRotateRight(heading))
+                || performMove(unit, bc.bcDirectionRotateRight(bc.bcDirectionRotateRight(heading)))
+                || performMove(unit, bc.bcDirectionRotateLeft(heading))
+                || performMove(unit, bc.bcDirectionRotateLeft(bc.bcDirectionRotateLeft(heading)));
     }
 
     //move a unit in the given direction
-    private void performMove(Unit unit, Direction heading) {
+    private boolean performMove(Unit unit, Direction heading) {
         if (unit.movementHeat() != 0) {
-            return;
+            return false;
         }
-        System.out.println("moveToward result: " + unit.id() + " at "
-                + unit.location().mapLocation() + " to " + heading.name());
-        gc.moveRobot(unit.id(), heading);
+        if (gc.isMoveReady(unit.id()) && gc.canMove(unit.id(), heading)) {
+            gc.moveRobot(unit.id(), heading);
+            System.out.println("performMove result: " + unit.id() + " at "
+                    + unit.location().mapLocation() + " moved " + heading.name());
+            return true;
+        }
+        return false;
     }
 }
