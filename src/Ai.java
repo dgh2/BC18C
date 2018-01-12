@@ -143,7 +143,9 @@ public class Ai {
         System.out.println("getMyUnits called with type: " + unitType.name());
         Set<Unit> units = new HashSet<>();
         for (int i = 0; i < gc.myUnits().size(); i++) {
+            System.out.println("getMyUnits checking index: " + i);
             if (gc.myUnits().get(i).unitType().equals(unitType)) {
+                System.out.println("getMyUnits adding unit with index: " + i);
                 units.add(gc.myUnits().get(i));
             }
         }
