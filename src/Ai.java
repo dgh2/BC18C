@@ -143,7 +143,7 @@ public class Ai {
     //Get all of my units of a particular type
     private Set<Unit> getMyUnits(UnitType unitType) {
         System.out.println("getMyUnits called for unit type: " + unitType);
-        if (myUnits == null) {
+        if (myUnits.isEmpty()) {
             for (int i = 0; i < gc.myUnits().size(); i++) {
                 System.out.println("getMyUnits getting unit at index: " + i + " of type " + gc.myUnits().get(i).unitType());
                 if (!myUnits.containsKey(gc.myUnits().get(i).unitType())) {
@@ -151,11 +151,12 @@ public class Ai {
                 }
                 myUnits.get(gc.myUnits().get(i).unitType()).add(gc.myUnits().get(i));
             }
-            System.out.println("getMyUnits size: " + myUnits.size());
         }
         if (!myUnits.containsKey(unitType)) {
+            System.out.println("getMyUnits size: 0");
             return new HashSet<Unit>();
         }
+        System.out.println("getMyUnits size: " + myUnits.size());
         return myUnits.get(unitType);
     }
 
