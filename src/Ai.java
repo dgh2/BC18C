@@ -129,7 +129,7 @@ public class Ai {
             System.out.println("Attempting to build " + unitType.name() + ": " + unit.id() + " at "
                     + unit.location().mapLocation() + " to " + structure.location().mapLocation());
             if (structure.structureIsBuilt() == 0) {
-                if (unit.workerHasActed() == 0 && gc.canBuild(unit.id(), structure.id())) {
+                if (gc.canBuild(unit.id(), structure.id())) {
                     gc.build(unit.id(), structure.id());
                     return true;
                 } else if (moveToward(unit, structure.location().mapLocation())) {
