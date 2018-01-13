@@ -29,6 +29,7 @@ public class Ai {
         VecUnit units = gc.myUnits();
         for (int i = 0; i < units.size(); i++) {
             Unit unit = units.get(i);
+            System.out.println("Processing " + unit.unitType().name() + " " + unit.id());
             switch (unit.unitType()) {
                 //TODO: Make each unit type its own class
                 case Worker:
@@ -37,7 +38,7 @@ public class Ai {
                     }
                     Set<Unit> myFactories = getMyUnits(UnitType.Factory);
                     Set<Unit> myRockets = getMyUnits(UnitType.Rocket);
-                    UnitType wantedStructure = myFactories.size() < 2 * myRockets.size() ? UnitType.Factory : UnitType.Rocket;
+                    UnitType wantedStructure = myFactories.size() <= 2 * myRockets.size() ? UnitType.Factory : UnitType.Rocket;
 
                     for (Direction direction : Util.getDirections()) {
                         if (gc.karbonite() < bc.bcUnitTypeBlueprintCost(wantedStructure)) {
@@ -59,7 +60,7 @@ public class Ai {
                     if (attemptToBuild(unit, UnitType.Factory)) {
                         break;
                     }
-                    if (gc.karbonite() > 4 * bc.bcUnitTypeReplicateCost(UnitType.Worker)) {
+                    if (gc.karbonite() > 7 * bc.bcUnitTypeReplicateCost(UnitType.Worker)) {
                         for (Direction direction : Util.getDirections()) {
                             System.out.println("Attempting to replicate: " + unit.id() + " at "
                                     + unit.location().mapLocation() + " to " + direction.name());
@@ -124,18 +125,15 @@ public class Ai {
             throw new IllegalArgumentException("Unit " + unit.id() + " is not a worker and cannot build");
         }
         System.out.println("attemptToBuild called with " + unitType.name() + ": " + unit.id() + " to build a " + unitType.name());
-        if (unit.workerHasActed() == 0) {
-            for (Unit structure : getMyUnits(unitType)) {
-                System.out.println("Attempting to build " + unitType.name() + ": " + unit.id() + " at "
-                        + unit.location().mapLocation() + " to " + structure.location().mapLocation());
-                if (structure.structureIsBuilt() == 0) {
-                    if (gc.canBuild(unit.id(), structure.id())) {
-                        gc.build(unit.id(), structure.id());
-                        return true;
-                    } else if (gc.isMoveReady(unit.id())) {
-                        moveToward(unit, structure.location().mapLocation());
-                        return true;
-                    }
+        for (Unit structure : getMyUnits(unitType)) {
+            System.out.println("Attempting to build " + unitType.name() + ": " + unit.id() + " at "
+                    + unit.location().mapLocation() + " to " + structure.location().mapLocation());
+            if (structure.structureIsBuilt() == 0) {
+                if (unit.workerHasActed() == 0 && gc.canBuild(unit.id(), structure.id())) {
+                    gc.build(unit.id(), structure.id());
+                    return true;
+                } else if (moveToward(unit, structure.location().mapLocation())) {
+                    return true;
                 }
             }
         }
