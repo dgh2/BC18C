@@ -144,19 +144,20 @@ public class Ai {
 
     //Get all of my units of a particular type
     private Set<Unit> getMyUnits(UnitType unitType) {
-        System.out.println("getMyUnits called with type: " + unitType.name());
-        if (!myUnits.containsKey(unitType)) {
-            Set<Unit> units = new HashSet<>();
+        System.out.println("getMyUnits called for unit type: " + unitType);
+        if (myUnits == null) {
             for (int i = 0; i < gc.myUnits().size(); i++) {
-                System.out.println("getMyUnits checking index: " + i);
-                if (gc.myUnits().get(i).unitType().equals(unitType)) {
-                    System.out.println("getMyUnits adding unit with index: " + i);
-                    units.add(gc.myUnits().get(i));
+                System.out.println("getMyUnits getting unit at index: " + i + " of type " + gc.myUnits().get(i).unitType());
+                if (!myUnits.containsKey(gc.myUnits().get(i).unitType())) {
+                    myUnits.put(gc.myUnits().get(i).unitType(), new HashSet<>());
                 }
+                myUnits.get(gc.myUnits().get(i).unitType()).add(gc.myUnits().get(i));
             }
-            myUnits.put(unitType, units);
+            System.out.println("getMyUnits size: " + myUnits.size());
         }
-        System.out.println("getMyUnits result: " + myUnits.get(unitType).size() + " " + unitType.name());
+        if (!myUnits.containsKey(unitType)) {
+            return new HashSet<Unit>();
+        }
         return myUnits.get(unitType);
     }
 
