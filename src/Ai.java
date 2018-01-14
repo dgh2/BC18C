@@ -110,14 +110,14 @@ public class Ai {
                     }
                     MapLocation closestKarbonite = findClosestKarbonite(unit.location().mapLocation());
                     if (closestKarbonite != null) {
-                        if (closestKarbonite.distanceSquaredTo(unit.location().mapLocation()) <= 1) {
+                        if (closestKarbonite.isAdjacentTo(unit.location().mapLocation())) {
                             Direction directionToClosestKarbonite = unit.location().mapLocation().directionTo(closestKarbonite);
                             if (gc.canHarvest(unit.id(), directionToClosestKarbonite)) {
                                 gc.harvest(unit.id(), directionToClosestKarbonite);
                                 break;
                             }
                         }
-                        if (moveTowards(unit, closestKarbonite)){
+                        if (moveTowards(unit, closestKarbonite)) {
                             break;
                         }
                     }
@@ -245,10 +245,10 @@ public class Ai {
     private MapLocation findClosestKarbonite(MapLocation startLocation) {
         MapLocation closest = null;
         Long distance = null;
-        for(MapLocation aKarboniteLocation : karboniteLocations) {
-            if(distance == null || startLocation.distanceSquaredTo(aKarboniteLocation) < distance){
-            closest = aKarboniteLocation;
-            distance = startLocation.distanceSquaredTo(aKarboniteLocation);
+        for (MapLocation aKarboniteLocation : karboniteLocations) {
+            if (distance == null || startLocation.distanceSquaredTo(aKarboniteLocation) < distance) {
+                closest = aKarboniteLocation;
+                distance = startLocation.distanceSquaredTo(aKarboniteLocation);
             }
         }
         return closest;
