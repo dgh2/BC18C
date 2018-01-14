@@ -45,7 +45,7 @@ public class Ai {
             myUnits.put(unitType, new HashSet<>());
         }
         for (int i = 0; i < myUnitsVc.size(); i++) {
-            System.out.println("getMyUnits getting unit at index: " + i + " of type " + myUnitsVc.get(i).unitType());
+//            System.out.println("getMyUnits getting unit at index: " + i + " of type " + myUnitsVc.get(i).unitType());
             myUnits.get(myUnitsVc.get(i).unitType()).add(myUnitsVc.get(i));
         }
         currentResearchInfo = gc.researchInfo();
@@ -59,7 +59,7 @@ public class Ai {
         VecUnit units = gc.myUnits();
         for (int i = 0; i < units.size(); i++) {
             Unit unit = units.get(i);
-            System.out.println("Processing " + unit.unitType().name() + " " + unit.id());
+//            System.out.println("Processing " + unit.unitType().name() + " " + unit.id());
             switch (unit.unitType()) {
                 //TODO: Make each unit type its own class
                 case Worker:
@@ -82,8 +82,8 @@ public class Ai {
                         if (karbonite < bc.bcUnitTypeBlueprintCost(wantedStructure)) {
                             break;
                         }
-                        System.out.println("Attempting blueprint: " + unit.id() + " at "
-                                + unit.location().mapLocation() + " to " + direction.name());
+//                        System.out.println("Attempting blueprint: " + unit.id() + " at "
+//                                + unit.location().mapLocation() + " to " + direction.name());
                         if (gc.canBlueprint(unit.id(), wantedStructure, direction)) {
                             gc.blueprint(unit.id(), wantedStructure, direction);
                             break;
@@ -98,10 +98,10 @@ public class Ai {
                     if (attemptToBuild(unit, UnitType.Factory)) {
                         break;
                     }
-                    if (myUnits.get(UnitType.Worker).size() < 4 && karbonite > bc.bcUnitTypeReplicateCost(UnitType.Worker)) {
+                    if (myUnits.get(UnitType.Worker).size() < 3 && karbonite > bc.bcUnitTypeReplicateCost(UnitType.Worker)) {
                         for (Direction direction : Util.getDirections()) {
-                            System.out.println("Attempting to replicate: " + unit.id() + " at "
-                                    + unit.location().mapLocation() + " to " + direction.name());
+//                            System.out.println("Attempting to replicate: " + unit.id() + " at "
+//                                    + unit.location().mapLocation() + " to " + direction.name());
                             if (gc.canReplicate(unit.id(), direction)) {
                                 gc.replicate(unit.id(), direction);
                                 break;
@@ -110,14 +110,21 @@ public class Ai {
                     }
                     MapLocation closestKarbonite = findClosestKarbonite(unit.location().mapLocation());
                     if (closestKarbonite != null) {
-                        if (closestKarbonite.isAdjacentTo(unit.location().mapLocation())) {
+                        System.out.println("Closest Karbonite to " + unit.location().mapLocation() + " at " + closestKarbonite);
+                        if (closestKarbonite.distanceSquaredTo(unit.location().mapLocation()) <= 2) {
                             Direction directionToClosestKarbonite = unit.location().mapLocation().directionTo(closestKarbonite);
+                            System.out.println("Attempting to harvest: " + unit.id() + " at " + unit.location().mapLocation()
+                                    + " in direction " + directionToClosestKarbonite.name());
                             if (gc.canHarvest(unit.id(), directionToClosestKarbonite)) {
+                                System.out.println("Actually harvest");
                                 gc.harvest(unit.id(), directionToClosestKarbonite);
+                                if (gc.karboniteAt(closestKarbonite) <= 0) {
+                                    System.out.println("Removing completely harvested karbonite from karbonite locations");
+                                    karboniteLocations.remove(closestKarbonite);
+                                }
                                 break;
                             }
-                        }
-                        if (moveTowards(unit, closestKarbonite)) {
+                        } else if (moveTowards(unit, closestKarbonite)) {
                             break;
                         }
                     }
@@ -131,8 +138,8 @@ public class Ai {
                 case Mage:
                     break;
                 case Factory:
-                    System.out.println("Attempting to produce worker from Factory: " + unit.id() + " at " + unit.location().mapLocation());
                     if (karbonite > bc.bcUnitTypeFactoryCost(UnitType.Worker)) {
+                        System.out.println("Attempting to produce worker from Factory: " + unit.id() + " at " + unit.location().mapLocation());
                         if (gc.canProduceRobot(unit.id(), UnitType.Worker)) {
                             gc.produceRobot(unit.id(), UnitType.Worker);
                         }
@@ -156,6 +163,7 @@ public class Ai {
                     break;
             }
         }
+        System.out.println("Ending of round: " + round);
         round++;
         // Submit the actions we've done, and wait for our next turn.
         gc.nextTurn();
@@ -172,10 +180,10 @@ public class Ai {
         if (!unit.location().isOnPlanet(planet)) {
             return false;
         }
-        System.out.println("attemptToBuild called with " + unitType.name() + ": " + unit.id() + " to build a " + unitType.name());
+//        System.out.println("attemptToBuild called with " + unitType.name() + ": " + unit.id() + " to build a " + unitType.name());
         for (Unit structure : getMyUnits(unitType)) {
-            System.out.println("Attempting to build " + unitType.name() + ": " + unit.id() + " at "
-                    + unit.location() + " to " + structure.location());
+//            System.out.println("Attempting to build " + unitType.name() + ": " + unit.id() + " at "
+//                    + unit.location() + " to " + structure.location());
             if (structure.structureIsBuilt() == 0 && structure.location().isOnPlanet(unit.location().mapLocation().getPlanet())) {
                 if (gc.canBuild(unit.id(), structure.id())) {
                     gc.build(unit.id(), structure.id());
@@ -190,12 +198,12 @@ public class Ai {
 
     //Get all of my units of a particular type
     private Set<Unit> getMyUnits(UnitType unitType) {
-        System.out.println("getMyUnits called for unit type: " + unitType);
+//        System.out.println("getMyUnits called for unit type: " + unitType);
         if (!myUnits.containsKey(unitType)) {
-            System.out.println("getMyUnits size: 0");
+//            System.out.println("getMyUnits size: 0");
             return new HashSet<Unit>();
         }
-        System.out.println("getMyUnits size: " + myUnits.get(unitType).size());
+//        System.out.println("getMyUnits size: " + myUnits.get(unitType).size());
         return myUnits.get(unitType);
     }
 
@@ -207,8 +215,8 @@ public class Ai {
         if (!unit.location().isOnPlanet(planet)) {
             return false;
         }
-        System.out.println("Attempting to moveTowards: " + unit.id() + " at "
-                + unit.location().mapLocation() + " to " + goal);
+//        System.out.println("Attempting to moveTowards: " + unit.id() + " at "
+//                + unit.location().mapLocation() + " to " + goal);
         if (unit.location().mapLocation().getPlanet() != goal.getPlanet()) {
             throw new IllegalArgumentException("Cannot path from "
                     + unit.location().mapLocation().getPlanet().name() + " to " + goal.getPlanet().name());
@@ -251,6 +259,7 @@ public class Ai {
                 distance = startLocation.distanceSquaredTo(aKarboniteLocation);
             }
         }
+        System.out.println("Find closest Karbonite returning: " + closest);
         return closest;
     }
 }
