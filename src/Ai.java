@@ -98,7 +98,7 @@ public class Ai {
                     if (attemptToBuild(unit, UnitType.Factory)) {
                         break;
                     }
-                    if (myUnits.get(UnitType.Worker).size() < 10 && karbonite > bc.bcUnitTypeReplicateCost(UnitType.Worker)) {
+                    if (myUnits.get(UnitType.Worker).size() < 4 && karbonite > bc.bcUnitTypeReplicateCost(UnitType.Worker)) {
                         for (Direction direction : Util.getDirections()) {
                             System.out.println("Attempting to replicate: " + unit.id() + " at "
                                     + unit.location().mapLocation() + " to " + direction.name());
@@ -109,13 +109,13 @@ public class Ai {
                         }
                     }
                     if (unit.movementHeat() == 0) {
-//                        for (Direction direction : Util.getDirections()) {
+
+                        MapLocation closestKarbonite = findClosestKarbonite(unit.location().mapLocation());
 //                            System.out.println("Attempting to move: " + unit.id() + " at "
-//                                    + unit.location().mapLocation() + " to " + direction.name());
-                            if (performMove(unit, Util.getRandomDirection())) {
-                                break;
-                            }
-//                        }
+//                                    + unit.location().mapLocation() + " to " + closestKarbonite);
+                        if(closestKarbonite != null && moveTowards(unit, closestKarbonite)){
+                            break;
+                        }
                     }
                     break;
                 case Healer:
@@ -176,7 +176,7 @@ public class Ai {
                 if (gc.canBuild(unit.id(), structure.id())) {
                     gc.build(unit.id(), structure.id());
                     return true;
-                } else if (moveToward(unit, structure.location().mapLocation())) {
+                } else if (moveTowards(unit, structure.location().mapLocation())) {
                     return true;
                 }
             }
@@ -196,14 +196,14 @@ public class Ai {
     }
 
     //Move a unit toward the goal location
-    private boolean moveToward(Unit unit, MapLocation goal) throws IllegalArgumentException {
+    private boolean moveTowards(Unit unit, MapLocation goal) throws IllegalArgumentException {
         if (unit.movementHeat() != 0) {
             return false;
         }
         if (!unit.location().isOnPlanet(planet)) {
             return false;
         }
-        System.out.println("Attempting to moveToward: " + unit.id() + " at "
+        System.out.println("Attempting to moveTowards: " + unit.id() + " at "
                 + unit.location().mapLocation() + " to " + goal);
         if (unit.location().mapLocation().getPlanet() != goal.getPlanet()) {
             throw new IllegalArgumentException("Cannot path from "
@@ -236,4 +236,18 @@ public class Ai {
         }
         return false;
     }
+
+    //M. find closest karbonite deposit to unit
+    private MapLocation findClosestKarbonite(MapLocation startLocation) {
+        MapLocation closest = null;
+        Long distance = null;
+        for(MapLocation aKarboniteLocation : karboniteLocations) {
+            if(distance == null || startLocation.distanceSquaredTo(aKarboniteLocation) < distance){
+            closest = aKarboniteLocation;
+            distance = startLocation.distanceSquaredTo(aKarboniteLocation);
+            }
+        }
+        return closest;
+    }
 }
+
