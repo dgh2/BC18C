@@ -62,6 +62,9 @@ public class Ai {
             switch (unit.unitType()) {
                 //TODO: Make each unit type its own class
                 case Worker:
+                    if (!unit.location().isOnPlanet(planet)) {
+                        break;
+                    }
                     if (unit.workerHasActed() != 0) {
                         break;
                     }
@@ -126,17 +129,19 @@ public class Ai {
                     }
                     break;
                 case Rocket:
-                    if (unit.structureGarrison().size() == unit.structureMaxCapacity()) {
-                        System.out.println("Rocket is full at: " + unit.location().mapLocation());
-                        MapLocation target = Util.getRandomValidLocation(startingMaps.get(Planet.Mars));
-                        if (gc.canLaunchRocket(unit.id(), target)) {
-                            System.out.println("Launching rocket from: " + unit.location().mapLocation() + " to " + target);
-                            gc.launchRocket(unit.id(), target);
+                    if (planet == Planet.Earth && unit.location().isOnPlanet(planet)) {
+                        if (unit.structureGarrison().size() == unit.structureMaxCapacity()) {
+                            System.out.println("Rocket is full at: " + unit.location().mapLocation());
+                            MapLocation target = Util.getRandomValidLocation(startingMaps.get(Planet.Mars));
+                            if (gc.canLaunchRocket(unit.id(), target)) {
+                                System.out.println("Launching rocket from: " + unit.location().mapLocation() + " to " + target);
+                                gc.launchRocket(unit.id(), target);
+                            }
+                        } else {
+                            System.out.println("Rocket is waiting for "
+                                    + (unit.structureMaxCapacity() - unit.structureGarrison().size())
+                                    + " more units until launch");
                         }
-                    } else {
-                        System.out.println("Rocket is waiting for "
-                                + (unit.structureMaxCapacity() - unit.structureGarrison().size())
-                                + " more units until launch");
                     }
                     break;
             }
@@ -154,11 +159,14 @@ public class Ai {
         if (unit.unitType() != UnitType.Worker) {
             throw new IllegalArgumentException("Unit " + unit.id() + " is not a worker and cannot build");
         }
+        if (!unit.location().isOnPlanet(planet)) {
+            return false;
+        }
         System.out.println("attemptToBuild called with " + unitType.name() + ": " + unit.id() + " to build a " + unitType.name());
         for (Unit structure : getMyUnits(unitType)) {
             System.out.println("Attempting to build " + unitType.name() + ": " + unit.id() + " at "
-                    + unit.location().mapLocation() + " to " + structure.location().mapLocation());
-            if (structure.structureIsBuilt() == 0) {
+                    + unit.location() + " to " + structure.location());
+            if (structure.structureIsBuilt() == 0 && structure.location().isOnPlanet(unit.location().mapLocation().getPlanet())) {
                 if (gc.canBuild(unit.id(), structure.id())) {
                     gc.build(unit.id(), structure.id());
                     return true;
@@ -177,13 +185,16 @@ public class Ai {
             System.out.println("getMyUnits size: 0");
             return new HashSet<Unit>();
         }
-        System.out.println("getMyUnits size: " + myUnits.size());
+        System.out.println("getMyUnits size: " + myUnits.get(unitType).size());
         return myUnits.get(unitType);
     }
 
     //Move a unit toward the goal location
     private boolean moveToward(Unit unit, MapLocation goal) throws IllegalArgumentException {
         if (unit.movementHeat() != 0) {
+            return false;
+        }
+        if (!unit.location().isOnPlanet(planet)) {
             return false;
         }
         System.out.println("Attempting to moveToward: " + unit.id() + " at "
@@ -206,6 +217,9 @@ public class Ai {
     //move a unit in the given direction
     private boolean performMove(Unit unit, Direction heading) {
         if (unit.movementHeat() != 0) {
+            return false;
+        }
+        if (!unit.location().isOnPlanet(planet)) {
             return false;
         }
         if (gc.isMoveReady(unit.id()) && gc.canMove(unit.id(), heading)) {
