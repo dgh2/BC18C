@@ -65,6 +65,7 @@ class Util {
         return initialKarboniteLocations;
     }
 
+    //TODO: Don't infinite loop when there are no valid locations on the target planet
     //Get a random passable location from the PlanetMap
     static MapLocation getRandomValidLocation(PlanetMap planetMap) {
         MapLocation random;
