@@ -108,12 +108,16 @@ public class Ai {
                             }
                         }
                     }
-                    if (unit.movementHeat() == 0) {
-
-                        MapLocation closestKarbonite = findClosestKarbonite(unit.location().mapLocation());
-//                            System.out.println("Attempting to move: " + unit.id() + " at "
-//                                    + unit.location().mapLocation() + " to " + closestKarbonite);
-                        if(closestKarbonite != null && moveTowards(unit, closestKarbonite)){
+                    MapLocation closestKarbonite = findClosestKarbonite(unit.location().mapLocation());
+                    if (closestKarbonite != null) {
+                        if (closestKarbonite.distanceSquaredTo(unit.location().mapLocation()) <= 1) {
+                            Direction directionToClosestKarbonite = unit.location().mapLocation().directionTo(closestKarbonite);
+                            if (gc.canHarvest(unit.id(), directionToClosestKarbonite)) {
+                                gc.harvest(unit.id(), directionToClosestKarbonite);
+                                break;
+                            }
+                        }
+                        if (moveTowards(unit, closestKarbonite)){
                             break;
                         }
                     }
