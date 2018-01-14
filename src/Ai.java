@@ -16,7 +16,7 @@ public class Ai {
     private Long round = null;
     private Long karbonite = null;
     private Planet planet = null;
-
+    private ResearchInfo currentResearchInfo = null;
 
     //Put no logic here in the constructor, exceptions can't be handled this early
     public Ai(GameController gc) {
@@ -41,13 +41,14 @@ public class Ai {
         planet = gc.planet();
         myUnits.clear();
         VecUnit myUnitsVc = gc.myUnits();
+        for (UnitType unitType : UnitType.values()) {
+            myUnits.put(unitType, new HashSet<>());
+        }
         for (int i = 0; i < myUnitsVc.size(); i++) {
             System.out.println("getMyUnits getting unit at index: " + i + " of type " + myUnitsVc.get(i).unitType());
-            if (!myUnits.containsKey(myUnitsVc.get(i).unitType())) {
-                myUnits.put(myUnitsVc.get(i).unitType(), new HashSet<>());
-            }
             myUnits.get(myUnitsVc.get(i).unitType()).add(myUnitsVc.get(i));
         }
+        currentResearchInfo = gc.researchInfo();
         System.out.println("Current round: " + round);
     }
 
@@ -68,9 +69,14 @@ public class Ai {
                     if (unit.workerHasActed() != 0) {
                         break;
                     }
-                    Set<Unit> myFactories = getMyUnits(UnitType.Factory);
-                    Set<Unit> myRockets = getMyUnits(UnitType.Rocket);
-                    UnitType wantedStructure = myFactories.size() <= 2 * myRockets.size() ? UnitType.Factory : UnitType.Rocket;
+
+                    UnitType wantedStructure;
+                    if (currentResearchInfo.getLevel(UnitType.Rocket) > 0) {
+                        wantedStructure = UnitType.Factory;
+                    } else {
+                        wantedStructure = (myUnits.get(UnitType.Factory).size() <= 2 * myUnits.get(UnitType.Rocket).size())
+                                ? UnitType.Factory : UnitType.Rocket;
+                    }
 
                     for (Direction direction : Util.getDirections()) {
                         if (karbonite < bc.bcUnitTypeBlueprintCost(wantedStructure)) {
@@ -92,7 +98,7 @@ public class Ai {
                     if (attemptToBuild(unit, UnitType.Factory)) {
                         break;
                     }
-                    if (karbonite > 7 * bc.bcUnitTypeReplicateCost(UnitType.Worker)) {
+                    if (myUnits.get(UnitType.Worker).size() < 10 && karbonite > bc.bcUnitTypeReplicateCost(UnitType.Worker)) {
                         for (Direction direction : Util.getDirections()) {
                             System.out.println("Attempting to replicate: " + unit.id() + " at "
                                     + unit.location().mapLocation() + " to " + direction.name());
@@ -103,13 +109,13 @@ public class Ai {
                         }
                     }
                     if (unit.movementHeat() == 0) {
-                        for (Direction direction : Util.getDirections()) {
-                            System.out.println("Attempting to move: " + unit.id() + " at "
-                                    + unit.location().mapLocation() + " to " + direction.name());
-                            if (performMove(unit, direction)) {
+//                        for (Direction direction : Util.getDirections()) {
+//                            System.out.println("Attempting to move: " + unit.id() + " at "
+//                                    + unit.location().mapLocation() + " to " + direction.name());
+                            if (performMove(unit, Util.getRandomDirection())) {
                                 break;
                             }
-                        }
+//                        }
                     }
                     break;
                 case Healer:
