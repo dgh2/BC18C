@@ -9,22 +9,51 @@ import java.util.Set;
 
 public class Ai {
     private GameController gc;
+    private Map<UnitType, Set<Unit>> myUnits = new HashMap<>();
+    private Map<Planet, PlanetMap> startingMaps = new HashMap<>();
+
     private Set<MapLocation> karboniteLocations = null;
-    private Map<UnitType, Set<Unit>> myUnits = new HashMap<UnitType, Set<Unit>>();
+    private Long round = null;
+    private Long karbonite = null;
+    private Planet planet = null;
+
 
     //Put no logic here in the constructor, exceptions can't be handled this early
     public Ai(GameController gc) {
         this.gc = gc;
     }
 
+    //initialization method that should only run on the first turn
+    private void runOnce() {
+        karboniteLocations = Util.getInitialKarboniteLocations(gc.startingMap(Planet.Earth));
+        for (Planet planet : Planet.values()) {
+            startingMaps.put(planet, gc.startingMap(planet));
+        }
+        round = gc.round() - 1;
+    }
+
+    //Set variables once per round to prevent excessive calls to gc
+    private void initialize() {
+        if (round == null) {
+            runOnce();
+        }
+        karbonite = gc.karbonite();
+        planet = gc.planet();
+        myUnits.clear();
+        VecUnit myUnitsVc = gc.myUnits();
+        for (int i = 0; i < myUnitsVc.size(); i++) {
+            System.out.println("getMyUnits getting unit at index: " + i + " of type " + myUnitsVc.get(i).unitType());
+            if (!myUnits.containsKey(myUnitsVc.get(i).unitType())) {
+                myUnits.put(myUnitsVc.get(i).unitType(), new HashSet<>());
+            }
+            myUnits.get(myUnitsVc.get(i).unitType()).add(myUnitsVc.get(i));
+        }
+        System.out.println("Current round: " + round);
+    }
+
     //Called each turn by Player.java
     public void run() {
-        myUnits.clear();
-        if (karboniteLocations == null) {
-            karboniteLocations = Util.getInitialKarboniteLocations(gc.startingMap(Planet.Earth));
-        }
-
-        System.out.println("Current round: " + gc.round());
+        initialize();
         // VecUnit is a class that you can think of as similar to ArrayList<Unit>, but immutable.
         VecUnit units = gc.myUnits();
         for (int i = 0; i < units.size(); i++) {
@@ -41,7 +70,7 @@ public class Ai {
                     UnitType wantedStructure = myFactories.size() <= 2 * myRockets.size() ? UnitType.Factory : UnitType.Rocket;
 
                     for (Direction direction : Util.getDirections()) {
-                        if (gc.karbonite() < bc.bcUnitTypeBlueprintCost(wantedStructure)) {
+                        if (karbonite < bc.bcUnitTypeBlueprintCost(wantedStructure)) {
                             break;
                         }
                         System.out.println("Attempting blueprint: " + unit.id() + " at "
@@ -60,7 +89,7 @@ public class Ai {
                     if (attemptToBuild(unit, UnitType.Factory)) {
                         break;
                     }
-                    if (gc.karbonite() > 7 * bc.bcUnitTypeReplicateCost(UnitType.Worker)) {
+                    if (karbonite > 7 * bc.bcUnitTypeReplicateCost(UnitType.Worker)) {
                         for (Direction direction : Util.getDirections()) {
                             System.out.println("Attempting to replicate: " + unit.id() + " at "
                                     + unit.location().mapLocation() + " to " + direction.name());
@@ -90,7 +119,7 @@ public class Ai {
                     break;
                 case Factory:
                     System.out.println("Attempting to produce worker from Factory: " + unit.id() + " at " + unit.location().mapLocation());
-                    if (gc.karbonite() > bc.bcUnitTypeFactoryCost(UnitType.Worker)) {
+                    if (karbonite > bc.bcUnitTypeFactoryCost(UnitType.Worker)) {
                         if (gc.canProduceRobot(unit.id(), UnitType.Worker)) {
                             gc.produceRobot(unit.id(), UnitType.Worker);
                         }
@@ -99,7 +128,7 @@ public class Ai {
                 case Rocket:
                     if (unit.structureGarrison().size() == unit.structureMaxCapacity()) {
                         System.out.println("Rocket is full at: " + unit.location().mapLocation());
-                        MapLocation target = Util.getRandomValidLocation(gc.startingMap(Planet.Mars));
+                        MapLocation target = Util.getRandomValidLocation(startingMaps.get(Planet.Mars));
                         if (gc.canLaunchRocket(unit.id(), target)) {
                             System.out.println("Launching rocket from: " + unit.location().mapLocation() + " to " + target);
                             gc.launchRocket(unit.id(), target);
@@ -112,6 +141,7 @@ public class Ai {
                     break;
             }
         }
+        round++;
         // Submit the actions we've done, and wait for our next turn.
         gc.nextTurn();
     }
@@ -143,15 +173,6 @@ public class Ai {
     //Get all of my units of a particular type
     private Set<Unit> getMyUnits(UnitType unitType) {
         System.out.println("getMyUnits called for unit type: " + unitType);
-        if (myUnits.isEmpty()) {
-            for (int i = 0; i < gc.myUnits().size(); i++) {
-                System.out.println("getMyUnits getting unit at index: " + i + " of type " + gc.myUnits().get(i).unitType());
-                if (!myUnits.containsKey(gc.myUnits().get(i).unitType())) {
-                    myUnits.put(gc.myUnits().get(i).unitType(), new HashSet<>());
-                }
-                myUnits.get(gc.myUnits().get(i).unitType()).add(gc.myUnits().get(i));
-            }
-        }
         if (!myUnits.containsKey(unitType)) {
             System.out.println("getMyUnits size: 0");
             return new HashSet<Unit>();
