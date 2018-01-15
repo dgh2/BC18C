@@ -179,6 +179,28 @@ public class Ai {
                             System.out.println("Rocket is waiting for "
                                     + (unit.structureMaxCapacity() - unit.structureGarrison().size())
                                     + " more units until launch");
+                            for (Direction direction : Util.getDirections()) {
+                                if (unit.structureGarrison().size() == unit.structureMaxCapacity()) {
+                                    break;
+                                }
+                                MapLocation adjacentLocation = unit.location().mapLocation().add(direction);
+                                if (gc.hasUnitAtLocation(adjacentLocation)) {
+                                    Unit adjacentUnit = gc.senseUnitAtLocation(adjacentLocation);
+                                    if (gc.canLoad(unit.id(), adjacentUnit.id())) {
+                                        gc.load(unit.id(), adjacentUnit.id());
+                                        myUnits.remove(unit.unitType(), unit);
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        for (Direction direction : Util.getDirections()) {
+                            if (unit.structureGarrison().size() == 0) {
+                                break;
+                            }
+                            if (gc.canUnload(unit.id(), direction)) {
+                                gc.unload(unit.id(), direction);
+                            }
                         }
                     }
                     break;
