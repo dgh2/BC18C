@@ -134,10 +134,12 @@ public class Ai {
                                 System.out.println("Failed to harvest karbonite at " + closestKarbonite + " from " + unit.location().mapLocation()
                                         + " with exception message " + e.getMessage());
                             }
-                        }
-                        if (moveTowards(unit, closestKarbonite)) {
+                        } else if (moveTowards(unit, closestKarbonite)) {
                             break;
                         }
+                    }
+                    if (performMove(unit, Util.getRandomDirection())) {
+                        break;
                     }
                     break;
                 case Healer:
