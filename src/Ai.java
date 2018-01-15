@@ -30,6 +30,9 @@ public class Ai {
             startingMaps.put(planet, gc.startingMap(planet));
         }
         round = gc.round() - 1;
+        gc.queueResearch(UnitType.Rocket);
+        gc.queueResearch(UnitType.Rocket);
+        gc.queueResearch(UnitType.Rocket);
     }
 
     //Set variables once per round to prevent excessive calls to gc
@@ -71,8 +74,10 @@ public class Ai {
                     }
 
                     UnitType wantedStructure;
-                    if (currentResearchInfo.getLevel(UnitType.Rocket) > 0) {
+                    if (currentResearchInfo.getLevel(UnitType.Rocket) == 0) {
                         wantedStructure = UnitType.Factory;
+                    } else if (karboniteLocations.isEmpty()) {
+                        wantedStructure = UnitType.Rocket;
                     } else {
                         wantedStructure = (myUnits.get(UnitType.Factory).size() <= 2 * myUnits.get(UnitType.Rocket).size())
                                 ? UnitType.Factory : UnitType.Rocket;
@@ -115,16 +120,22 @@ public class Ai {
                             Direction directionToClosestKarbonite = unit.location().mapLocation().directionTo(closestKarbonite);
                             System.out.println("Attempting to harvest: " + unit.id() + " at " + unit.location().mapLocation()
                                     + " in direction " + directionToClosestKarbonite.name());
-                            if (gc.canHarvest(unit.id(), directionToClosestKarbonite)) {
+                            try {
+//                            if (gc.canHarvest(unit.id(), directionToClosestKarbonite)) {
                                 System.out.println("Actually harvest");
                                 gc.harvest(unit.id(), directionToClosestKarbonite);
-                                if (gc.karboniteAt(closestKarbonite) <= 0) {
-                                    System.out.println("Removing completely harvested karbonite from karbonite locations");
+                                if (gc.karboniteAt(closestKarbonite) <= unit.workerHarvestAmount()) {
+                                    System.out.println("Completely harvested karbonite from location: " + closestKarbonite);
                                     karboniteLocations.remove(closestKarbonite);
                                 }
                                 break;
+//                            }
+                            } catch (Exception e) {
+                                System.out.println("Failed to harvest karbonite at " + closestKarbonite + " from " + unit.location().mapLocation()
+                                        + " with exception message " + e.getMessage());
                             }
-                        } else if (moveTowards(unit, closestKarbonite)) {
+                        }
+                        if (moveTowards(unit, closestKarbonite)) {
                             break;
                         }
                     }
@@ -139,9 +150,17 @@ public class Ai {
                     break;
                 case Factory:
                     if (karbonite > bc.bcUnitTypeFactoryCost(UnitType.Worker)) {
-                        System.out.println("Attempting to produce worker from Factory: " + unit.id() + " at " + unit.location().mapLocation());
+//                        System.out.println("Attempting to produce worker from Factory: " + unit.id() + " at " + unit.location().mapLocation());
                         if (gc.canProduceRobot(unit.id(), UnitType.Worker)) {
                             gc.produceRobot(unit.id(), UnitType.Worker);
+                        }
+                        for (Direction direction : Util.getDirections()) {
+                            if (unit.structureGarrison().size() == 0) {
+                                break;
+                            }
+                            if (gc.canUnload(unit.id(), direction)) {
+                                gc.unload(unit.id(), direction);
+                            }
                         }
                     }
                     break;
@@ -215,8 +234,8 @@ public class Ai {
         if (!unit.location().isOnPlanet(planet)) {
             return false;
         }
-//        System.out.println("Attempting to moveTowards: " + unit.id() + " at "
-//                + unit.location().mapLocation() + " to " + goal);
+        System.out.println("Attempting to moveTowards: " + unit.id() + " at "
+                + unit.location().mapLocation() + " to " + goal);
         if (unit.location().mapLocation().getPlanet() != goal.getPlanet()) {
             throw new IllegalArgumentException("Cannot path from "
                     + unit.location().mapLocation().getPlanet().name() + " to " + goal.getPlanet().name());
@@ -257,6 +276,9 @@ public class Ai {
             if (distance == null || startLocation.distanceSquaredTo(aKarboniteLocation) < distance) {
                 closest = aKarboniteLocation;
                 distance = startLocation.distanceSquaredTo(aKarboniteLocation);
+            }
+            if (distance == 0) {
+                break;
             }
         }
         System.out.println("Find closest Karbonite returning: " + closest);
