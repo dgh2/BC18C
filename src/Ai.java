@@ -10,13 +10,16 @@ import java.util.Set;
 public class Ai {
     private GameController gc;
     private Map<UnitType, Set<Unit>> myUnits = new HashMap<>();
+    private Map<UnitType, Set<Unit>> garrisonedUnits = new HashMap<>();
     private Map<Planet, PlanetMap> startingMaps = new HashMap<>();
+    private Map<Planet, Map<MapLocation, Boolean>> passabilityMaps = new HashMap<>();
 
     private Set<MapLocation> karboniteLocations = null;
     private Long round = null;
     private Long karbonite = null;
     private Planet planet = null;
     private ResearchInfo currentResearchInfo = null;
+    private Integer msRemaining = null;
 
     //Put no logic here in the constructor, exceptions can't be handled this early
     public Ai(GameController gc) {
@@ -28,11 +31,19 @@ public class Ai {
         karboniteLocations = Util.getInitialKarboniteLocations(gc.startingMap(Planet.Earth));
         for (Planet planet : Planet.values()) {
             startingMaps.put(planet, gc.startingMap(planet));
+            passabilityMaps.put(planet, new HashMap<>());
+            MapLocation temp;
+            for (int i = 0; i < startingMaps.get(planet).getWidth(); i++) {
+                for (int j = 0; j < startingMaps.get(planet).getHeight(); j++) {
+                    temp = new MapLocation(planet, i, j);
+                    passabilityMaps.get(planet).put(temp, startingMaps.get(planet).isPassableTerrainAt(temp) > 0);
+                }
+            }
         }
         round = gc.round() - 1;
         gc.queueResearch(UnitType.Rocket);
-        gc.queueResearch(UnitType.Rocket);
-        gc.queueResearch(UnitType.Rocket);
+//        gc.queueResearch(UnitType.Rocket);
+//        gc.queueResearch(UnitType.Rocket);
     }
 
     //Set variables once per round to prevent excessive calls to gc
@@ -43,16 +54,23 @@ public class Ai {
         karbonite = gc.karbonite();
         planet = gc.planet();
         myUnits.clear();
+        garrisonedUnits.clear();
         VecUnit myUnitsVc = gc.myUnits();
         for (UnitType unitType : UnitType.values()) {
             myUnits.put(unitType, new HashSet<>());
+            garrisonedUnits.put(unitType, new HashSet<>());
         }
         for (int i = 0; i < myUnitsVc.size(); i++) {
 //            System.out.println("getMyUnits getting unit at index: " + i + " of type " + myUnitsVc.get(i).unitType());
-            myUnits.get(myUnitsVc.get(i).unitType()).add(myUnitsVc.get(i));
+            if (myUnitsVc.get(i).location().isInGarrison()) {
+                garrisonedUnits.get(myUnitsVc.get(i).unitType()).add(myUnitsVc.get(i));
+            } else if (myUnitsVc.get(i).location().isOnPlanet(planet)) {
+                myUnits.get(myUnitsVc.get(i).unitType()).add(myUnitsVc.get(i));
+            }
         }
         currentResearchInfo = gc.researchInfo();
-        System.out.println("Current round: " + round);
+        msRemaining = gc.getTimeLeftMs();
+        System.out.println("Current round: " + round + " with " + msRemaining + "ms remaining");
     }
 
     //Called each turn by Player.java
@@ -73,25 +91,26 @@ public class Ai {
                         break;
                     }
 
-                    UnitType wantedStructure;
+                    UnitType wantedStructure = null;
                     if (currentResearchInfo.getLevel(UnitType.Rocket) == 0) {
                         wantedStructure = UnitType.Factory;
-                    } else if (karboniteLocations.isEmpty()) {
+                    } else if (karboniteLocations.isEmpty() && myUnits.get(UnitType.Rocket).size() == 0) {
                         wantedStructure = UnitType.Rocket;
-                    } else {
+                    } /*else {
                         wantedStructure = (myUnits.get(UnitType.Factory).size() <= 2 * myUnits.get(UnitType.Rocket).size())
                                 ? UnitType.Factory : UnitType.Rocket;
-                    }
-
-                    for (Direction direction : Util.getDirections()) {
-                        if (karbonite < bc.bcUnitTypeBlueprintCost(wantedStructure)) {
-                            break;
-                        }
-//                        System.out.println("Attempting blueprint: " + unit.id() + " at "
-//                                + unit.location().mapLocation() + " to " + direction.name());
-                        if (gc.canBlueprint(unit.id(), wantedStructure, direction)) {
-                            gc.blueprint(unit.id(), wantedStructure, direction);
-                            break;
+                    }*/
+                    if (wantedStructure != null) {
+                        for (Direction direction : Util.getDirections()) {
+                            if (karbonite < bc.bcUnitTypeBlueprintCost(wantedStructure)) {
+                                break;
+                            }
+                            System.out.println("Attempting blueprint: " + unit.id() + " at "
+                                    + unit.location().mapLocation() + " to " + direction.name());
+                            if (gc.canBlueprint(unit.id(), wantedStructure, direction)) {
+                                gc.blueprint(unit.id(), wantedStructure, direction);
+                                break;
+                            }
                         }
                     }
                     if (unit.workerHasActed() != 0) {
@@ -103,10 +122,10 @@ public class Ai {
                     if (attemptToBuild(unit, UnitType.Factory)) {
                         break;
                     }
-                    if (myUnits.get(UnitType.Worker).size() < 3 && karbonite > bc.bcUnitTypeReplicateCost(UnitType.Worker)) {
+                    if (myUnits.get(UnitType.Worker).size() < 6 && karbonite > bc.bcUnitTypeReplicateCost(UnitType.Worker)) {
                         for (Direction direction : Util.getDirections()) {
-//                            System.out.println("Attempting to replicate: " + unit.id() + " at "
-//                                    + unit.location().mapLocation() + " to " + direction.name());
+                            System.out.println("Attempting to replicate: " + unit.id() + " at "
+                                    + unit.location().mapLocation() + " to " + direction.name());
                             if (gc.canReplicate(unit.id(), direction)) {
                                 gc.replicate(unit.id(), direction);
                                 break;
@@ -151,7 +170,7 @@ public class Ai {
                 case Mage:
                     break;
                 case Factory:
-                    if (karbonite > bc.bcUnitTypeFactoryCost(UnitType.Worker)) {
+                    if (myUnits.get(UnitType.Worker).size() < 6 && karbonite > bc.bcUnitTypeFactoryCost(UnitType.Worker)) {
 //                        System.out.println("Attempting to produce worker from Factory: " + unit.id() + " at " + unit.location().mapLocation());
                         if (gc.canProduceRobot(unit.id(), UnitType.Worker)) {
                             gc.produceRobot(unit.id(), UnitType.Worker);
@@ -162,6 +181,9 @@ public class Ai {
                             }
                             if (gc.canUnload(unit.id(), direction)) {
                                 gc.unload(unit.id(), direction);
+                                Unit unloaded = gc.senseUnitAtLocation(unit.location().mapLocation().add(direction));
+                                myUnits.get(unloaded.unitType()).add(unloaded);
+                                garrisonedUnits.get(unloaded.unitType()).remove(unloaded);
                             }
                         }
                     }
@@ -170,7 +192,7 @@ public class Ai {
                     if (planet == Planet.Earth && unit.location().isOnPlanet(planet)) {
                         if (unit.structureGarrison().size() == unit.structureMaxCapacity()) {
                             System.out.println("Rocket is full at: " + unit.location().mapLocation());
-                            MapLocation target = Util.getRandomValidLocation(startingMaps.get(Planet.Mars));
+                            MapLocation target = getRandomValidLocation(startingMaps.get(Planet.Mars));
                             if (gc.canLaunchRocket(unit.id(), target)) {
                                 System.out.println("Launching rocket from: " + unit.location().mapLocation() + " to " + target);
                                 gc.launchRocket(unit.id(), target);
@@ -188,7 +210,8 @@ public class Ai {
                                     Unit adjacentUnit = gc.senseUnitAtLocation(adjacentLocation);
                                     if (gc.canLoad(unit.id(), adjacentUnit.id())) {
                                         gc.load(unit.id(), adjacentUnit.id());
-                                        myUnits.remove(unit.unitType(), unit);
+                                        myUnits.get(unit.unitType()).remove(unit);
+                                        garrisonedUnits.get(unit.unitType()).add(unit);
                                     }
                                 }
                             }
@@ -200,13 +223,16 @@ public class Ai {
                             }
                             if (gc.canUnload(unit.id(), direction)) {
                                 gc.unload(unit.id(), direction);
+                                Unit unloaded = gc.senseUnitAtLocation(unit.location().mapLocation().add(direction));
+                                myUnits.get(unloaded.unitType()).add(unloaded);
+                                garrisonedUnits.get(unloaded.unitType()).remove(unloaded);
                             }
                         }
                     }
                     break;
             }
         }
-        System.out.println("Ending of round: " + round);
+        System.out.println("Ending of round: " + round + " with " + msRemaining + "ms remaining");
         round++;
         // Submit the actions we've done, and wait for our next turn.
         gc.nextTurn();
@@ -305,8 +331,22 @@ public class Ai {
                 break;
             }
         }
-        System.out.println("Find closest Karbonite returning: " + closest);
+        System.out.println("Find closest Karbonite returning: " + closest + " with " + gc.karboniteAt(closest) + " karbonite");
         return closest;
+    }
+
+    //TODO: Don't infinite loop when there are no valid locations on the target planet
+    //Get a random passable location from the PlanetMap
+    private MapLocation getRandomValidLocation(PlanetMap planetMap) {
+        MapLocation random;
+        do {
+            random = new MapLocation(planetMap.getPlanet(),
+                    Util.getRandomInt((int) planetMap.getWidth()),
+                    Util.getRandomInt((int) planetMap.getHeight()));
+            System.out.println("Random location: " + random);
+        } while (!passabilityMaps.get(planetMap.getPlanet()).get(random));
+        System.out.println("Returning valid random location: " + random);
+        return random;
     }
 }
 

@@ -64,18 +64,4 @@ class Util {
         }
         return initialKarboniteLocations;
     }
-
-    //TODO: Don't infinite loop when there are no valid locations on the target planet
-    //Get a random passable location from the PlanetMap
-    static MapLocation getRandomValidLocation(PlanetMap planetMap) {
-        MapLocation random;
-        do {
-            random = new MapLocation(planetMap.getPlanet(),
-                    getRandomInt((int) planetMap.getWidth()),
-                    getRandomInt((int) planetMap.getHeight()));
-            System.out.println("Random location: " + random);
-        } while (planetMap.isPassableTerrainAt(random) != 0);
-        System.out.println("Returning valid random location: " + random);
-        return random;
-    }
 }
