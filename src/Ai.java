@@ -317,7 +317,6 @@ public class Ai {
 
         System.out.println("Ending of round: " + round + " with " + msRemaining + "ms remaining");
         round++;
-        gc.nextTurn();
     }
 
     //Get all of my units of a particular type
