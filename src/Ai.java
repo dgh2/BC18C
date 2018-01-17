@@ -162,7 +162,9 @@ public class Ai {
                 MapLocation closestKarbonite = null;
                 while (closestKarbonite == null && !karboniteLocations.isEmpty()) {
                     closestKarbonite = findClosestKarbonite(unit.location().mapLocation());
-                    if (closestKarbonite != null && gc.karboniteAt(closestKarbonite) <= unit.workerHarvestAmount()) {
+                    if (closestKarbonite != null
+                            && gc.canSenseLocation(closestKarbonite)
+                            && gc.karboniteAt(closestKarbonite) <= unit.workerHarvestAmount()) {
                         System.out.println("No more Karbonite at: " + closestKarbonite);
                         karboniteLocations.remove(closestKarbonite);
                         closestKarbonite = null;
@@ -171,7 +173,8 @@ public class Ai {
                 //System.out.println("Karbonite deposits on " + planet.name() + ": " + karboniteLocations.size());
                 if (closestKarbonite != null) {
                     //System.out.println("Closest Karbonite to " + unit.location().mapLocation() + " at " + closestKarbonite);
-                    if (closestKarbonite.distanceSquaredTo(unit.location().mapLocation()) <= 2) {
+                    if (gc.canSenseLocation(closestKarbonite)
+                            && closestKarbonite.distanceSquaredTo(unit.location().mapLocation()) <= 2) {
                         Direction directionToClosestKarbonite = unit.location().mapLocation().directionTo(closestKarbonite);
                         System.out.println("Attempting to harvest: " + unit.id() + " at " + unit.location().mapLocation()
                                 + " in direction " + directionToClosestKarbonite.name());
