@@ -12,7 +12,7 @@ import java.util.Set;
 
 @SuppressWarnings("WeakerAccess")
 class Util {
-    private static Random rand = new Random();
+    private static Random rand = new Random(1337);
     private static List<Direction> directions;
 
     //Only runs once, used to instantiate static variables such as directions

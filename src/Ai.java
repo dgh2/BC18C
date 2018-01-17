@@ -2,8 +2,11 @@ package src;
 
 import bc.*;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -15,6 +18,7 @@ public class Ai {
     private Long enemyUnitCount = 0L;
     private Map<Planet, PlanetMap> startingMaps = new HashMap<>();
     private Map<Planet, Map<MapLocation, Boolean>> passabilityMaps = new HashMap<>();
+    private Map<Planet, Integer> passabilityCount = new HashMap<>();
 
     private Set<MapLocation> karboniteLocations = null;
     private Long round = null;
@@ -38,11 +42,17 @@ public class Ai {
         for (Planet planet : Planet.values()) {
             startingMaps.put(planet, gc.startingMap(planet));
             passabilityMaps.put(planet, new HashMap<>());
+            passabilityCount.put(planet, 0);
             MapLocation temp;
             for (int i = 0; i < startingMaps.get(planet).getWidth(); i++) {
                 for (int j = 0; j < startingMaps.get(planet).getHeight(); j++) {
                     temp = new MapLocation(planet, i, j);
-                    passabilityMaps.get(planet).put(temp, startingMaps.get(planet).isPassableTerrainAt(temp) > 0);
+                    if (startingMaps.get(planet).isPassableTerrainAt(temp) > 0) {
+                        passabilityMaps.get(planet).put(temp, true);
+                        passabilityCount.put(planet, passabilityCount.get(planet) + 1);
+                    } else {
+                        passabilityMaps.get(planet).put(temp, false);
+                    }
                 }
             }
         }
@@ -50,10 +60,14 @@ public class Ai {
         gc.queueResearch(UnitType.Rocket);
         gc.queueResearch(UnitType.Rocket);
 //        gc.queueResearch(UnitType.Rocket);
+        gc.queueResearch(UnitType.Worker);
+        gc.queueResearch(UnitType.Ranger);
+        gc.queueResearch(UnitType.Ranger);
+        gc.queueResearch(UnitType.Ranger);
     }
 
     //Set variables once per round to prevent excessive calls to gc
-    private void initialize() {
+    private void initialize() throws Exception {
         if (round == null) {
             runOnce();
         }
@@ -62,6 +76,12 @@ public class Ai {
         myUnits.clear();
         garrisonedUnits.clear();
         enemyUnits.clear();
+        enemyUnitCount = 0L;
+        currentResearchInfo = gc.researchInfo();
+        msRemaining = gc.getTimeLeftMs();
+        if (msRemaining < 100) {
+            throw new Exception("Time running low, trying to recover");
+        }
 
         VecUnit myUnitsVc = gc.myUnits();
         for (UnitType unitType : UnitType.values()) {
@@ -83,29 +103,45 @@ public class Ai {
         enemyUnitCount = enemyVecUnit.size();
         for (int i = 0; i < enemyVecUnit.size(); i++) {
             enemyUnits.get(enemyVecUnit.get(i).unitType()).add(enemyVecUnit.get(i));
+            enemyUnitCount++;
         }
-        currentResearchInfo = gc.researchInfo();
-        msRemaining = gc.getTimeLeftMs();
         System.out.println("Current round: " + round + " with " + msRemaining + "ms remaining");
         System.out.println("Karbonite locations remaining: " + karboniteLocations.size());
     }
 
     private void processUnit(Unit unit) {
+        Integer unloadedCount;
+        Integer garrisonedCount;
         switch (unit.unitType()) {
             //TODO: Make each unit type its own class
             case Worker:
-                if (!unit.location().isOnPlanet(planet)) {
+                if (unit.workerHasActed() != 0) {
                     break;
                 }
-                if (unit.workerHasActed() != 0) {
+                if (myUnits.get(UnitType.Worker).size() < Math.max(7, Math.round(passabilityCount.get(planet) * .01))
+                        && karbonite > bc.bcUnitTypeReplicateCost(UnitType.Worker)) {
+                    for (Direction direction : Util.getDirections()) {
+                        //System.out.println("Attempting to replicate: " + unit.id() + " at "
+                        //        + unit.location().mapLocation() + " to " + direction.name());
+                        if (gc.canReplicate(unit.id(), direction)) {
+                            gc.replicate(unit.id(), direction);
+                            break;
+                        }
+                    }
+                }
+                if (attemptToBuild(unit, UnitType.Rocket)) {
+                    break;
+                }
+                if (attemptToBuild(unit, UnitType.Factory)) {
                     break;
                 }
 
                 UnitType wantedStructure = null;
-                if (currentResearchInfo.getLevel(UnitType.Rocket) == 0) {
-                    wantedStructure = UnitType.Factory;
-                } else if (karboniteLocations.isEmpty() && myUnits.get(UnitType.Rocket).size() == 0) {
+                if (currentResearchInfo.getLevel(UnitType.Rocket) != 0
+                        && myUnits.get(UnitType.Rocket).size() == 0) {
                     wantedStructure = UnitType.Rocket;
+                } else if (myUnits.get(UnitType.Factory).size() < Math.max(8, Math.round(passabilityCount.get(planet) * .05))) {
+                    wantedStructure = UnitType.Factory;
                 } /*else {
                         wantedStructure = (myUnits.get(UnitType.Factory).size() <= 2 * myUnits.get(UnitType.Rocket).size())
                                 ? UnitType.Factory : UnitType.Rocket;
@@ -115,36 +151,26 @@ public class Ai {
                         if (karbonite < bc.bcUnitTypeBlueprintCost(wantedStructure)) {
                             break;
                         }
-                        System.out.println("Attempting blueprint: " + unit.id() + " at "
-                                + unit.location().mapLocation() + " to " + direction.name());
+                        //System.out.println("Attempting blueprint: " + unit.id() + " at "
+                        //        + unit.location().mapLocation() + " to " + direction.name());
                         if (gc.canBlueprint(unit.id(), wantedStructure, direction)) {
                             gc.blueprint(unit.id(), wantedStructure, direction);
                             break;
                         }
                     }
                 }
-                if (unit.workerHasActed() != 0) {
-                    break;
-                }
-                if (attemptToBuild(unit, UnitType.Rocket)) {
-                    break;
-                }
-                if (attemptToBuild(unit, UnitType.Factory)) {
-                    break;
-                }
-                if (myUnits.get(UnitType.Worker).size() < 6 && karbonite > bc.bcUnitTypeReplicateCost(UnitType.Worker)) {
-                    for (Direction direction : Util.getDirections()) {
-                        System.out.println("Attempting to replicate: " + unit.id() + " at "
-                                + unit.location().mapLocation() + " to " + direction.name());
-                        if (gc.canReplicate(unit.id(), direction)) {
-                            gc.replicate(unit.id(), direction);
-                            break;
-                        }
+                MapLocation closestKarbonite = null;
+                while (closestKarbonite == null && !karboniteLocations.isEmpty()) {
+                    closestKarbonite = findClosestKarbonite(unit.location().mapLocation());
+                    if (closestKarbonite != null && gc.karboniteAt(closestKarbonite) <= unit.workerHarvestAmount()) {
+                        System.out.println("No more Karbonite at: " + closestKarbonite);
+                        karboniteLocations.remove(closestKarbonite);
+                        closestKarbonite = null;
                     }
                 }
-                MapLocation closestKarbonite = findClosestKarbonite(unit.location().mapLocation());
+                //System.out.println("Karbonite deposits on " + planet.name() + ": " + karboniteLocations.size());
                 if (closestKarbonite != null) {
-                    System.out.println("Closest Karbonite to " + unit.location().mapLocation() + " at " + closestKarbonite);
+                    //System.out.println("Closest Karbonite to " + unit.location().mapLocation() + " at " + closestKarbonite);
                     if (closestKarbonite.distanceSquaredTo(unit.location().mapLocation()) <= 2) {
                         Direction directionToClosestKarbonite = unit.location().mapLocation().directionTo(closestKarbonite);
                         System.out.println("Attempting to harvest: " + unit.id() + " at " + unit.location().mapLocation()
@@ -175,38 +201,63 @@ public class Ai {
                     Direction approachDirection = unit.location().mapLocation().directionTo(closestEnemy.location().mapLocation());
                     Direction retreatDirection = bc.bcDirectionOpposite(approachDirection);
                     Long distance = unit.location().mapLocation().distanceSquaredTo(closestEnemy.location().mapLocation());
-                    if (distance <= unit.rangerCannotAttackRange()) {
+                    //consider preventing our attacks as an attack itself
+                    Long closestEnemyAttackRange = unit.rangerCannotAttackRange();
+                    if (!closestEnemy.unitType().equals(UnitType.Factory)
+                            && !closestEnemy.unitType().equals(UnitType.Rocket)
+                            && closestEnemy.attackRange() >= unit.rangerCannotAttackRange()) {
+                        closestEnemyAttackRange = closestEnemy.attackRange();
+                    }
+
+                    if (unit.attackHeat() >= 10) {
+                        //System.out.println("Ranger at " + unit.location().mapLocation() + ": kite, attack is on cooldown");
+                        //try to stay just out of the enemy range
+                        if (distance > closestEnemyAttackRange + 1) {
+                            moveTowards(unit, unit.location().mapLocation().add(approachDirection));
+                        } else if (distance < closestEnemyAttackRange + 1) {
+                            moveTowards(unit, unit.location().mapLocation().add(retreatDirection));
+                        }
+                    } else if (distance <= unit.rangerCannotAttackRange()) {
+                        System.out.println("Ranger at " + unit.location().mapLocation() + ": retreat");
                         //retreat
                         moveTowards(unit, unit.location().mapLocation().add(retreatDirection));
-                        //then attack
-                        if (distance <= unit.attackRange() && gc.canAttack(unit.id(), closestEnemy.id())) {
+                        //then attack if possible
+                        System.out.println("Ranger at " + unit.location().mapLocation() + ": then attack");
+                        if (unit.location().mapLocation().add(retreatDirection).distanceSquaredTo(closestEnemy.location().mapLocation()) <= unit.attackRange()
+                                && gc.canAttack(unit.id(), closestEnemy.id())) {
                             gc.attack(unit.id(), closestEnemy.id());
                         }
-                    } else if ((closestEnemy.unitType() == UnitType.Factory || closestEnemy.unitType() == UnitType.Rocket)
-                            && distance <= 4 * unit.attackRange() && currentResearchInfo.getLevel(UnitType.Ranger) >= 3) {
+                    } else if (currentResearchInfo.getLevel(UnitType.Ranger) >= 3
+                            && (closestEnemy.unitType() == UnitType.Factory || closestEnemy.unitType() == UnitType.Rocket)
+                            && distance >= 4 * unit.attackRange() && currentResearchInfo.getLevel(UnitType.Ranger) >= 3) {
+                        System.out.println("Ranger at " + unit.location().mapLocation() + ": snipe");
                         //TODO: more intelligently determine when to snipe than a multiple of unit range
                         //snipe buildings from distance
-                        if (gc.isBeginSnipeReady(unit.id()) && gc.canBeginSnipe(unit.id(), closestEnemy.location().mapLocation())) {
+                        if (unit.abilityHeat() < 10
+                                && gc.isBeginSnipeReady(unit.id())
+                                && gc.canBeginSnipe(unit.id(), closestEnemy.location().mapLocation())) {
                             gc.beginSnipe(unit.id(), closestEnemy.location().mapLocation());
                         }
                     } else if (distance <= unit.attackRange()) {
+                        System.out.println("Ranger at " + unit.location().mapLocation() + ": attack");
                         //attack
                         if (gc.canAttack(unit.id(), closestEnemy.id())) {
                             gc.attack(unit.id(), closestEnemy.id());
                         }
+                        System.out.println("Ranger at " + unit.location().mapLocation() + ": then retreat");
                         //then retreat
                         moveTowards(unit, unit.location().mapLocation().add(retreatDirection));
-                    } else if (!closestEnemy.unitType().equals(UnitType.Factory)
-                            && !closestEnemy.unitType().equals(UnitType.Rocket)
-                            && distance <= closestEnemy.attackRange()) {
-                        //retreat
-                        moveTowards(unit, unit.location().mapLocation().add(retreatDirection));
                     } else {
-                        //approach
-                        moveTowards(unit, unit.location().mapLocation().add(approachDirection));
+                        System.out.println("Ranger at " + unit.location().mapLocation() + ": kite");
+                        //try to stay just out of the enemy range
+                        if (distance > closestEnemyAttackRange + 1) {
+                            moveTowards(unit, unit.location().mapLocation().add(approachDirection));
+                        } else if (distance < closestEnemyAttackRange + 1) {
+                            moveTowards(unit, unit.location().mapLocation().add(retreatDirection));
+                        }
                     }
                 } else if (planet.equals(Planet.Earth) && !myUnits.get(UnitType.Rocket).isEmpty()) {
-                    Unit targetRocket = findMyClosestRocket(unit.location().mapLocation());
+                    Unit targetRocket = findMyClosestUnit(unit.location().mapLocation(), UnitType.Rocket);
                     if (targetRocket != null) {
                         moveTowards(unit, targetRocket.location().mapLocation());
                     }
@@ -221,22 +272,28 @@ public class Ai {
                 break;
             case Factory:
                 //TODO: determine good scaling for how much to outnumber them by
-                if (myUnits.get(UnitType.Ranger).size() < Math.max(4, Math.round(1.5 * enemyUnitCount))
+                if (myUnits.get(UnitType.Ranger).size() < Math.round(passabilityCount.get(planet) * .5) + 1
                         && karbonite > bc.bcUnitTypeFactoryCost(UnitType.Ranger)) {
                     if (gc.canProduceRobot(unit.id(), UnitType.Ranger)) {
                         gc.produceRobot(unit.id(), UnitType.Ranger);
                     }
-                    for (Direction direction : Util.getDirections()) {
-                        if (unit.structureGarrison().size() == 0) {
-                            break;
+                }
+                unloadedCount = 0;
+                for (Direction direction : Util.getDirections()) {
+                    if (unit.structureGarrison().size() - unloadedCount == 0) {
+                        if (round >= 750 - Math.max(startingMaps.get(planet).getWidth(), startingMaps.get(planet).getHeight())) {
+                            System.out.println("Disintegrating factory at: " + unit.location().mapLocation());
+                            gc.disintegrateUnit(unit.id());
                         }
-                        if (gc.canUnload(unit.id(), direction)) {
-                            gc.unload(unit.id(), direction);
-                            Unit unloaded = gc.senseUnitAtLocation(unit.location().mapLocation().add(direction));
-                            myUnits.get(unloaded.unitType()).add(unloaded);
-                            garrisonedUnits.get(unloaded.unitType()).remove(unloaded);
-                            processUnit(unloaded);
-                        }
+                        break;
+                    }
+                    if (gc.canUnload(unit.id(), direction)) {
+                        gc.unload(unit.id(), direction);
+                        Unit unloaded = gc.senseUnitAtLocation(unit.location().mapLocation().add(direction));
+                        myUnits.get(unloaded.unitType()).add(unloaded);
+                        garrisonedUnits.get(unloaded.unitType()).remove(unloaded);
+                        processUnit(unloaded);
+                        unloadedCount++;
                     }
                 }
                 break;
@@ -244,62 +301,74 @@ public class Ai {
                 if (planet == Planet.Earth && unit.location().isOnPlanet(planet)) {
                     if (round == 749) {
                         System.out.println("Emergency Liftoff!");
+                        garrisonedCount = 0;
                         for (Direction direction : Util.getDirections()) {
-                            if (unit.structureGarrison().size() == unit.structureMaxCapacity()) {
+                            if (unit.structureGarrison().size() + garrisonedCount == unit.structureMaxCapacity()) {
+                                MapLocation target = getRandomValidLocation(startingMaps.get(Planet.Mars));
+                                if (target != null && gc.canLaunchRocket(unit.id(), target)) {
+                                    System.out.println("Launching rocket from: " + unit.location().mapLocation() + " to " + target);
+                                    gc.launchRocket(unit.id(), target);
+                                }
                                 break;
                             }
                             MapLocation adjacentLocation = unit.location().mapLocation().add(direction);
                             if (gc.hasUnitAtLocation(adjacentLocation)) {
                                 Unit adjacentUnit = gc.senseUnitAtLocation(adjacentLocation);
-                                if (gc.canLoad(unit.id(), adjacentUnit.id())) {
+                                if (!adjacentUnit.unitType().equals(UnitType.Factory)
+                                        && !adjacentUnit.unitType().equals(UnitType.Rocket)
+                                        && gc.canLoad(unit.id(), adjacentUnit.id())) {
                                     gc.load(unit.id(), adjacentUnit.id());
                                     myUnits.get(unit.unitType()).remove(unit);
                                     garrisonedUnits.get(unit.unitType()).add(unit);
+                                    garrisonedCount++;
                                 }
                             }
-                        }
-                        MapLocation target = getRandomValidLocation(startingMaps.get(Planet.Mars));
-                        if (gc.canLaunchRocket(unit.id(), target)) {
-                            System.out.println("Launching rocket from: " + unit.location().mapLocation() + " to " + target);
-                            gc.launchRocket(unit.id(), target);
-                        }
-                    } else if (unit.structureGarrison().size() == unit.structureMaxCapacity()) {
-                        System.out.println("Rocket is full at: " + unit.location().mapLocation());
-                        MapLocation target = getRandomValidLocation(startingMaps.get(Planet.Mars));
-                        if (gc.canLaunchRocket(unit.id(), target)) {
-                            System.out.println("Launching rocket from: " + unit.location().mapLocation() + " to " + target);
-                            gc.launchRocket(unit.id(), target);
                         }
                     } else {
                         System.out.println("Rocket is waiting for "
                                 + (unit.structureMaxCapacity() - unit.structureGarrison().size())
                                 + " more units until launch");
+                        garrisonedCount = 0;
                         for (Direction direction : Util.getDirections()) {
-                            if (unit.structureGarrison().size() == unit.structureMaxCapacity()) {
+                            if (unit.structureGarrison().size() + garrisonedCount == unit.structureMaxCapacity()) {
+                                MapLocation target = getRandomValidLocation(startingMaps.get(Planet.Mars));
+                                if (target != null && gc.canLaunchRocket(unit.id(), target)) {
+                                    System.out.println("Launching rocket from: " + unit.location().mapLocation() + " to " + target);
+                                    gc.launchRocket(unit.id(), target);
+                                }
                                 break;
                             }
                             MapLocation adjacentLocation = unit.location().mapLocation().add(direction);
                             if (gc.hasUnitAtLocation(adjacentLocation)) {
                                 Unit adjacentUnit = gc.senseUnitAtLocation(adjacentLocation);
-                                if (gc.canLoad(unit.id(), adjacentUnit.id())) {
+                                if (!adjacentUnit.unitType().equals(UnitType.Factory)
+                                        && !adjacentUnit.unitType().equals(UnitType.Rocket)
+                                        && gc.canLoad(unit.id(), adjacentUnit.id())) {
                                     gc.load(unit.id(), adjacentUnit.id());
                                     myUnits.get(unit.unitType()).remove(unit);
                                     garrisonedUnits.get(unit.unitType()).add(unit);
+                                    garrisonedCount++;
                                 }
                             }
                         }
                     }
                 } else {
+                    unloadedCount = 0;
                     for (Direction direction : Util.getDirections()) {
-                        if (unit.structureGarrison().size() == 0) {
+                        if (unit.structureGarrison().size() - unloadedCount == 0) {
                             break;
                         }
-                        if (gc.canUnload(unit.id(), direction)) {
-                            gc.unload(unit.id(), direction);
-                            Unit unloaded = gc.senseUnitAtLocation(unit.location().mapLocation().add(direction));
-                            myUnits.get(unloaded.unitType()).add(unloaded);
-                            garrisonedUnits.get(unloaded.unitType()).remove(unloaded);
-                            processUnit(unloaded);
+                        MapLocation adjacentLocation = unit.location().mapLocation().add(direction);
+                        if (gc.hasUnitAtLocation(adjacentLocation)) {
+                            Unit adjacentUnit = gc.senseUnitAtLocation(adjacentLocation);
+                            if (!adjacentUnit.unitType().equals(UnitType.Factory)
+                                    && !adjacentUnit.unitType().equals(UnitType.Rocket)
+                                    && gc.canLoad(unit.id(), adjacentUnit.id())) {
+                                gc.load(unit.id(), adjacentUnit.id());
+                                myUnits.get(unit.unitType()).remove(unit);
+                                garrisonedUnits.get(unit.unitType()).add(unit);
+                                unloadedCount++;
+                            }
                         }
                     }
                 }
@@ -308,7 +377,7 @@ public class Ai {
     }
 
     //Called each turn by Player.java
-    public void run() {
+    public void run() throws Exception{
         initialize();
 
         //I prefer processing unit types in reverse order: Rocket, Factory, Healer, Mage, Ranger, Knight, Worker
@@ -334,30 +403,20 @@ public class Ai {
             return false;
         }
 //        System.out.println("attemptToBuild called with " + unitType.name() + ": " + unit.id() + " to build a " + unitType.name());
-        for (Unit structure : getMyUnits(unitType)) {
-//            System.out.println("Attempting to build " + unitType.name() + ": " + unit.id() + " at "
-//                    + unit.location() + " to " + structure.location());
-            if (structure.structureIsBuilt() == 0 && structure.location().isOnPlanet(unit.location().mapLocation().getPlanet())) {
-                if (gc.canBuild(unit.id(), structure.id())) {
-                    gc.build(unit.id(), structure.id());
-                    return true;
-                } else if (moveTowards(unit, structure.location().mapLocation())) {
-                    return true;
-                }
+
+        Unit closestStructure = findMyClosestDamagedOrBuildingStructure(unit.location().mapLocation());
+        if (closestStructure != null) {
+            if (closestStructure.structureIsBuilt() == 0 && gc.canBuild(unit.id(), closestStructure.id())) {
+                gc.build(unit.id(), closestStructure.id());
+                return true;
+            } else if (gc.canRepair(unit.id(), closestStructure.id())) {
+                gc.repair(unit.id(), closestStructure.id());
+                return true;
+            } else if (moveTowards(unit, closestStructure.location().mapLocation())) {
+                return true;
             }
         }
         return false;
-    }
-
-    //Get all of my units of a particular type
-    private Set<Unit> getMyUnits(UnitType unitType) {
-//        System.out.println("getMyUnits called for unit type: " + unitType);
-        if (!myUnits.containsKey(unitType)) {
-//            System.out.println("getMyUnits size: 0");
-            return new HashSet<Unit>();
-        }
-//        System.out.println("getMyUnits size: " + myUnits.get(unitType).size());
-        return myUnits.get(unitType);
     }
 
     //Move a unit toward the goal location
@@ -368,8 +427,8 @@ public class Ai {
         if (!unit.location().isOnPlanet(planet)) {
             return false;
         }
-        System.out.println("Attempting to moveTowards: " + unit.id() + " at "
-                + unit.location().mapLocation() + " to " + goal);
+        //System.out.println("Attempting to moveTowards: " + unit.id() + " at "
+        //        + unit.location().mapLocation() + " to " + goal);
         if (unit.location().mapLocation().getPlanet() != goal.getPlanet()) {
             throw new IllegalArgumentException("Cannot path from "
                     + unit.location().mapLocation().getPlanet().name() + " to " + goal.getPlanet().name());
@@ -395,8 +454,8 @@ public class Ai {
         }
         if (gc.isMoveReady(unit.id()) && gc.canMove(unit.id(), heading)) {
             gc.moveRobot(unit.id(), heading);
-            System.out.println("performMove result: " + unit.id() + " at "
-                    + unit.location().mapLocation() + " moved " + heading.name());
+            //System.out.println("performMove result: " + unit.id() + " at "
+            //        + unit.location().mapLocation() + " moved " + heading.name());
             return true;
         }
         return false;
@@ -415,7 +474,11 @@ public class Ai {
                 break;
             }
         }
-        System.out.println("Find closest Karbonite returning: " + closest + " with " + gc.karboniteAt(closest) + " karbonite");
+        if (gc.canSenseLocation(closest)) {
+            //System.out.println("Find closest Karbonite returning: " + closest + " with " + gc.karboniteAt(closest) + " karbonite");
+        } else {
+            //System.out.println("Find closest Karbonite returning out of sight range location: " + closest);
+        }
         return closest;
     }
 
@@ -435,38 +498,59 @@ public class Ai {
                 }
             }
         }
-        System.out.println("Find closest unit returning: " + closest);
+        if (closest == null) {
+            //System.out.println("No close enemies found");
+        } else {
+            //System.out.println("Find closest enemy returning a " + closest.unitType() + " at " + closest.location().mapLocation());
+        }
         return closest;
     }
 
-    private Unit findMyClosestRocket(MapLocation startLocation) {
+    private Unit findMyClosestUnit(MapLocation startLocation, UnitType searchType) {
         Unit closest = null;
         Long distance = null;
-            for (Unit unit : myUnits.get(UnitType.Rocket)) {
-                if (distance == null || startLocation.distanceSquaredTo(unit.location().mapLocation()) < distance) {
-                    closest = unit;
-                    distance = startLocation.distanceSquaredTo(unit.location().mapLocation());
-                }
-                if (distance == 0) {
-                    break;
-                }
+        for (Unit unit : myUnits.get(searchType)) {
+            if (distance == null || startLocation.distanceSquaredTo(unit.location().mapLocation()) < distance) {
+                closest = unit;
+                distance = startLocation.distanceSquaredTo(unit.location().mapLocation());
             }
-        System.out.println("Find my closest rocket returning: " + closest);
+            if (distance == 0) {
+                break;
+            }
+        }
+        //System.out.println("Find my closest unit " + searchType.name() + " returning: " + closest);
         return closest;
     }
 
-    //TODO: Don't infinite loop when there are no valid locations on the target planet
+    private Unit findMyClosestDamagedOrBuildingStructure(MapLocation startLocation) {
+        Unit closest = null;
+        Long distance = null;
+        for (UnitType unitType : Arrays.asList(UnitType.Rocket, UnitType.Factory)) {
+            for (Unit structure : myUnits.get(unitType)) {
+                if (distance == null || startLocation.distanceSquaredTo(structure.location().mapLocation()) < distance) {
+                    if (structure.structureIsBuilt() == 0 || structure.health() < structure.maxHealth())
+                    closest = structure;
+                    distance = startLocation.distanceSquaredTo(structure.location().mapLocation());
+                    if (distance == 0 || startLocation.isAdjacentTo(structure.location().mapLocation())) {
+                        break;
+                    }
+                }
+            }
+        }
+        //System.out.println("Find my closest damaged or building structure returning: " + closest);
+        return closest;
+    }
+
     //Get a random passable location from the PlanetMap
     private MapLocation getRandomValidLocation(PlanetMap planetMap) {
-        MapLocation random;
-        do {
-            random = new MapLocation(planetMap.getPlanet(),
-                    Util.getRandomInt((int) planetMap.getWidth()),
-                    Util.getRandomInt((int) planetMap.getHeight()));
-            System.out.println("Random location: " + random);
-        } while (!passabilityMaps.get(planetMap.getPlanet()).get(random));
-        System.out.println("Returning valid random location: " + random);
-        return random;
+        List<MapLocation> passableMapLocations = new LinkedList<>();
+        for (MapLocation mapLocation : passabilityMaps.get(planetMap.getPlanet()).keySet()) {
+            if (passabilityMaps.get(planetMap.getPlanet()).get(mapLocation)) {
+                passableMapLocations.add(mapLocation);
+            }
+        }
+        MapLocation randomValid = passableMapLocations.get(Util.getRandomInt(passableMapLocations.size()) - 1);
+        System.out.println("Returning valid random location: " + randomValid);
+        return randomValid;
     }
 }
-
