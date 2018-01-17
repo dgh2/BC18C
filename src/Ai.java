@@ -67,6 +67,7 @@ public class Ai {
         for (UnitType unitType : UnitType.values()) {
             myUnits.put(unitType, new HashSet<>());
             garrisonedUnits.put(unitType, new HashSet<>());
+            enemyUnits.put(unitType, new HashSet<>());
         }
         for (int i = 0; i < myUnitsVc.size(); i++) {
 //            System.out.println("getMyUnits getting unit at index: " + i + " of type " + myUnitsVc.get(i).unitType());
