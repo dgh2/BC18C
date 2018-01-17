@@ -196,7 +196,9 @@ public class Ai {
                         }
                         //then retreat
                         moveTowards(unit, unit.location().mapLocation().add(retreatDirection));
-                    } else if (distance <= closestEnemy.attackRange()) {
+                    } else if (!closestEnemy.unitType().equals(UnitType.Factory)
+                            && !closestEnemy.unitType().equals(UnitType.Rocket)
+                            && distance <= closestEnemy.attackRange()) {
                         //retreat
                         moveTowards(unit, unit.location().mapLocation().add(retreatDirection));
                     } else {
