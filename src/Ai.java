@@ -271,12 +271,16 @@ public class Ai {
             case Mage:
                 break;
             case Factory:
-                //TODO: determine good scaling for how much to outnumber them by
-                if (myUnits.get(UnitType.Ranger).size() < Math.round(passabilityCount.get(planet) * .5) + 1
-                        && karbonite > bc.bcUnitTypeFactoryCost(UnitType.Ranger)) {
-                    if (gc.canProduceRobot(unit.id(), UnitType.Ranger)) {
+                if (myUnits.get(UnitType.Worker).size() < 4
+                        && karbonite > bc.bcUnitTypeFactoryCost(UnitType.Worker)
+                        && unit.structureGarrison().size() < unit.structureMaxCapacity()
+                        && gc.canProduceRobot(unit.id(), UnitType.Worker)) {
+                    gc.produceRobot(unit.id(), UnitType.Worker);
+                } else if (myUnits.get(UnitType.Ranger).size() < Math.round(passabilityCount.get(planet) * .5) + 1
+                        && karbonite > bc.bcUnitTypeFactoryCost(UnitType.Ranger)
+                        && gc.canProduceRobot(unit.id(), UnitType.Ranger)) {
+                    //TODO: determine good scaling (above) for how much to outnumber them by
                         gc.produceRobot(unit.id(), UnitType.Ranger);
-                    }
                 }
                 unloadedCount = 0;
                 for (Direction direction : Util.getDirections()) {
@@ -290,8 +294,8 @@ public class Ai {
                     if (gc.canUnload(unit.id(), direction)) {
                         gc.unload(unit.id(), direction);
                         Unit unloaded = gc.senseUnitAtLocation(unit.location().mapLocation().add(direction));
-                        myUnits.get(unloaded.unitType()).add(unloaded);
-                        garrisonedUnits.get(unloaded.unitType()).remove(unloaded);
+//                        myUnits.get(unloaded.unitType()).add(unloaded);
+//                        garrisonedUnits.get(unloaded.unitType()).remove(unloaded);
                         processUnit(unloaded);
                         unloadedCount++;
                     }
@@ -318,8 +322,8 @@ public class Ai {
                                         && !adjacentUnit.unitType().equals(UnitType.Rocket)
                                         && gc.canLoad(unit.id(), adjacentUnit.id())) {
                                     gc.load(unit.id(), adjacentUnit.id());
-                                    myUnits.get(unit.unitType()).remove(unit);
-                                    garrisonedUnits.get(unit.unitType()).add(unit);
+//                                    myUnits.get(unit.unitType()).remove(unit);
+//                                    garrisonedUnits.get(unit.unitType()).add(unit);
                                     garrisonedCount++;
                                 }
                             }
@@ -345,8 +349,8 @@ public class Ai {
                                         && !adjacentUnit.unitType().equals(UnitType.Rocket)
                                         && gc.canLoad(unit.id(), adjacentUnit.id())) {
                                     gc.load(unit.id(), adjacentUnit.id());
-                                    myUnits.get(unit.unitType()).remove(unit);
-                                    garrisonedUnits.get(unit.unitType()).add(unit);
+//                                    myUnits.get(unit.unitType()).remove(unit);
+//                                    garrisonedUnits.get(unit.unitType()).add(unit);
                                     garrisonedCount++;
                                 }
                             }
@@ -356,19 +360,19 @@ public class Ai {
                     unloadedCount = 0;
                     for (Direction direction : Util.getDirections()) {
                         if (unit.structureGarrison().size() - unloadedCount == 0) {
+//                            if (myUnitCount > 0) {
+//                                System.out.println("Disintegrating Rocket at: " + unit.location().mapLocation());
+//                                gc.disintegrateUnit(unit.id());
+//                            }
                             break;
                         }
-                        MapLocation adjacentLocation = unit.location().mapLocation().add(direction);
-                        if (gc.hasUnitAtLocation(adjacentLocation)) {
-                            Unit adjacentUnit = gc.senseUnitAtLocation(adjacentLocation);
-                            if (!adjacentUnit.unitType().equals(UnitType.Factory)
-                                    && !adjacentUnit.unitType().equals(UnitType.Rocket)
-                                    && gc.canLoad(unit.id(), adjacentUnit.id())) {
-                                gc.load(unit.id(), adjacentUnit.id());
-                                myUnits.get(unit.unitType()).remove(unit);
-                                garrisonedUnits.get(unit.unitType()).add(unit);
-                                unloadedCount++;
-                            }
+                        if (gc.canUnload(unit.id(), direction)) {
+                            gc.unload(unit.id(), direction);
+                            Unit unloaded = gc.senseUnitAtLocation(unit.location().mapLocation().add(direction));
+//                        myUnits.get(unloaded.unitType()).add(unloaded);
+//                        garrisonedUnits.get(unloaded.unitType()).remove(unloaded);
+                            processUnit(unloaded);
+                            unloadedCount++;
                         }
                     }
                 }
@@ -377,7 +381,7 @@ public class Ai {
     }
 
     //Called each turn by Player.java
-    public void run() throws Exception{
+    public void run() throws Exception {
         initialize();
 
         //I prefer processing unit types in reverse order: Rocket, Factory, Healer, Mage, Ranger, Knight, Worker
@@ -474,11 +478,11 @@ public class Ai {
                 break;
             }
         }
-        if (gc.canSenseLocation(closest)) {
-            //System.out.println("Find closest Karbonite returning: " + closest + " with " + gc.karboniteAt(closest) + " karbonite");
-        } else {
-            //System.out.println("Find closest Karbonite returning out of sight range location: " + closest);
-        }
+//        if (gc.canSenseLocation(closest)) {
+//            System.out.println("Find closest Karbonite returning: " + closest + " with " + gc.karboniteAt(closest) + " karbonite");
+//        } else {
+//            System.out.println("Find closest Karbonite returning out of sight range location: " + closest);
+//        }
         return closest;
     }
 
@@ -498,11 +502,11 @@ public class Ai {
                 }
             }
         }
-        if (closest == null) {
-            //System.out.println("No close enemies found");
-        } else {
-            //System.out.println("Find closest enemy returning a " + closest.unitType() + " at " + closest.location().mapLocation());
-        }
+//        if (closest == null) {
+//            System.out.println("No close enemies found");
+//        } else {
+//            System.out.println("Find closest enemy returning a " + closest.unitType() + " at " + closest.location().mapLocation());
+//        }
         return closest;
     }
 
@@ -528,11 +532,12 @@ public class Ai {
         for (UnitType unitType : Arrays.asList(UnitType.Rocket, UnitType.Factory)) {
             for (Unit structure : myUnits.get(unitType)) {
                 if (distance == null || startLocation.distanceSquaredTo(structure.location().mapLocation()) < distance) {
-                    if (structure.structureIsBuilt() == 0 || structure.health() < structure.maxHealth())
-                    closest = structure;
-                    distance = startLocation.distanceSquaredTo(structure.location().mapLocation());
-                    if (distance == 0 || startLocation.isAdjacentTo(structure.location().mapLocation())) {
-                        break;
+                    if (structure.structureIsBuilt() == 0 || structure.health() < structure.maxHealth()) {
+                        closest = structure;
+                        distance = startLocation.distanceSquaredTo(structure.location().mapLocation());
+                        if (distance == 0 || startLocation.isAdjacentTo(structure.location().mapLocation())) {
+                            break;
+                        }
                     }
                 }
             }
