@@ -2,11 +2,11 @@ package src;
 
 import bc.*;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
-import java.util.HashSet;
-import java.util.Set;
 
 //If the method can be written without changing a state or needing anything from gc, it goes in here
 
@@ -51,17 +51,17 @@ class Util {
     }
 
     //Loop through all locations on the PlanetMap, return all MapLocations of initial Karbonite deposits
-    static Set<MapLocation> getInitialKarboniteLocations(PlanetMap planetMap) {
-        Set<MapLocation> initialKarboniteLocations = new HashSet<>();
+    static Map<MapLocation, Long> getInitialKarboniteAmounts(PlanetMap planetMap) {
+        Map<MapLocation, Long> initialKarboniteLocationMap = new HashMap<>();
         MapLocation temp;
         for (int i = 0; i < planetMap.getWidth(); i++) {
             for (int j = 0; j < planetMap.getHeight(); j++) {
                 temp = new MapLocation(planetMap.getPlanet(), i, j);
                 if (planetMap.initialKarboniteAt(temp) > 0) {
-                    initialKarboniteLocations.add(temp);
+                    initialKarboniteLocationMap.put(temp, planetMap.initialKarboniteAt(temp));
                 }
             }
         }
-        return initialKarboniteLocations;
+        return initialKarboniteLocationMap;
     }
 }

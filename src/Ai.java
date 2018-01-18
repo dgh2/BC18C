@@ -15,12 +15,11 @@ public class Ai {
     private Map<UnitType, Set<Unit>> myUnits = new HashMap<>();
     private Map<UnitType, Set<Unit>> garrisonedUnits = new HashMap<>();
     private Map<UnitType, Set<Unit>> enemyUnits = new HashMap<>();
-    private Long enemyUnitCount = 0L;
     private Map<Planet, PlanetMap> startingMaps = new HashMap<>();
     private Map<Planet, Map<MapLocation, Boolean>> passabilityMaps = new HashMap<>();
     private Map<Planet, Integer> passabilityCount = new HashMap<>();
 
-    private Set<MapLocation> karboniteLocations = null;
+    private Map<MapLocation, Long> karboniteMap = new HashMap<>();
     private Long round = null;
     private Long karbonite = null;
     private Planet planet = null;
@@ -38,7 +37,7 @@ public class Ai {
     private void runOnce() {
         ourTeam = gc.team();
         theirTeam = ourTeam == Team.Red ? Team.Blue : Team.Red;
-        karboniteLocations = Util.getInitialKarboniteLocations(gc.startingMap(Planet.Earth));
+        karboniteMap = Util.getInitialKarboniteAmounts(gc.startingMap(Planet.Earth));
         for (Planet planet : Planet.values()) {
             startingMaps.put(planet, gc.startingMap(planet));
             passabilityMaps.put(planet, new HashMap<>());
@@ -76,7 +75,6 @@ public class Ai {
         myUnits.clear();
         garrisonedUnits.clear();
         enemyUnits.clear();
-        enemyUnitCount = 0L;
         currentResearchInfo = gc.researchInfo();
         msRemaining = gc.getTimeLeftMs();
         if (msRemaining < 100) {
@@ -96,17 +94,33 @@ public class Ai {
             } else if (myUnitsVc.get(i).location().isOnPlanet(planet)) {
                 myUnits.get(myUnitsVc.get(i).unitType()).add(myUnitsVc.get(i));
             }
+            if (planet == Planet.Mars) {
+                //sense karbonite and add to karboniteMap
+                VecMapLocation sensedLocations = gc.allLocationsWithin(myUnitsVc.get(i).location().mapLocation(), myUnitsVc.get(i).visionRange());
+                //TODO: (optimization) keep track of all sensedLocations and don't do anything for locations we already sensed this turn
+                for (int mli = 0; mli < sensedLocations.size(); mli++) {
+                    Long karboniteAt = gc.karboniteAt(sensedLocations.get(mli));
+                    if (karboniteAt > 0) {
+                        karboniteMap.put(sensedLocations.get(mli), karboniteAt);
+                    }
+                }
+            }
+        }
+        if (planet == Planet.Earth) {
+            for (MapLocation karboniteLocation : karboniteMap.keySet()) {
+                if (gc.canSenseLocation(karboniteLocation)) {
+                    karboniteMap.put(karboniteLocation, gc.karboniteAt(karboniteLocation));
+                }
+            }
         }
 
         //TODO: set radius more intelligently, but still cover the whole map
         VecUnit enemyVecUnit = gc.senseNearbyUnitsByTeam(new MapLocation(planet, 0, 0), 1000, theirTeam);
-        enemyUnitCount = enemyVecUnit.size();
         for (int i = 0; i < enemyVecUnit.size(); i++) {
             enemyUnits.get(enemyVecUnit.get(i).unitType()).add(enemyVecUnit.get(i));
-            enemyUnitCount++;
         }
         System.out.println("Current round: " + round + " with " + msRemaining + "ms remaining");
-        System.out.println("Karbonite locations remaining: " + karboniteLocations.size());
+        System.out.println("Karbonite locations remaining: " + karboniteMap.keySet().size());
     }
 
     private void processUnit(Unit unit) {
@@ -159,32 +173,34 @@ public class Ai {
                         }
                     }
                 }
-                MapLocation closestKarbonite = null;
-                while (closestKarbonite == null && !karboniteLocations.isEmpty()) {
-                    closestKarbonite = findClosestKarbonite(unit.location().mapLocation());
-                    if (closestKarbonite != null
-                            && gc.canSenseLocation(closestKarbonite)
-                            && gc.karboniteAt(closestKarbonite) <= unit.workerHarvestAmount()) {
-                        System.out.println("No more Karbonite at: " + closestKarbonite);
-                        karboniteLocations.remove(closestKarbonite);
-                        closestKarbonite = null;
-                    }
-                }
-                //System.out.println("Karbonite deposits on " + planet.name() + ": " + karboniteLocations.size());
+//                MapLocation closestKarbonite = null;
+//                while (closestKarbonite == null && !karboniteMap.keySet().isEmpty()) {
+//                    closestKarbonite = findClosestKarbonite(unit.location().mapLocation());
+//                    if (closestKarbonite != null
+//                            && dist < unit.visionRange()
+//                            && karboniteMap.get(closestKarbonite) <= unit.workerHarvestAmount()) {
+//                        System.out.println("No more Karbonite at: " + closestKarbonite);
+//                        karboniteMap.remove(closestKarbonite);
+//                        closestKarbonite = null;
+//                    }
+//                }
+
+                MapLocation closestKarbonite = findClosestKarbonite(unit.location().mapLocation());
                 if (closestKarbonite != null) {
                     //System.out.println("Closest Karbonite to " + unit.location().mapLocation() + " at " + closestKarbonite);
                     if (gc.canSenseLocation(closestKarbonite)
                             && closestKarbonite.distanceSquaredTo(unit.location().mapLocation()) <= 2) {
                         Direction directionToClosestKarbonite = unit.location().mapLocation().directionTo(closestKarbonite);
-                        System.out.println("Attempting to harvest: " + unit.id() + " at " + unit.location().mapLocation()
-                                + " in direction " + directionToClosestKarbonite.name());
+//                        System.out.println("Attempting to harvest: " + unit.id() + " at " + unit.location().mapLocation()
+//                                + " in direction " + directionToClosestKarbonite.name());
                         if (gc.canHarvest(unit.id(), directionToClosestKarbonite)) {
-                            System.out.println("Actually harvest " + unit.workerHarvestAmount()
-                                    + " from " + gc.karboniteAt(closestKarbonite) + " karbonite");
+                            System.out.println("Harvesting " + Math.min(unit.workerHarvestAmount(), karboniteMap.get(closestKarbonite))
+                                    + " from " + karboniteMap.get(closestKarbonite) + " karbonite at " + closestKarbonite);
                             gc.harvest(unit.id(), directionToClosestKarbonite);
-                            if (gc.karboniteAt(closestKarbonite) <= unit.workerHarvestAmount()) {
+                            karboniteMap.put(closestKarbonite, karboniteMap.get(closestKarbonite) - unit.workerHarvestAmount());
+                            if (karboniteMap.get(closestKarbonite) <= 0) {
                                 System.out.println("Completely harvested karbonite from location: " + closestKarbonite);
-                                karboniteLocations.remove(closestKarbonite);
+                                karboniteMap.remove(closestKarbonite);
                             }
                             break;
                         }
@@ -311,7 +327,7 @@ public class Ai {
                         garrisonedCount = 0;
                         for (Direction direction : Util.getDirections()) {
                             if (unit.structureGarrison().size() + garrisonedCount == unit.structureMaxCapacity()) {
-                                MapLocation target = getRandomValidLocation(startingMaps.get(Planet.Mars));
+                                MapLocation target = getRandomValidLocation(Planet.Mars);
                                 if (target != null && gc.canLaunchRocket(unit.id(), target)) {
                                     System.out.println("Launching rocket from: " + unit.location().mapLocation() + " to " + target);
                                     gc.launchRocket(unit.id(), target);
@@ -338,7 +354,7 @@ public class Ai {
                         garrisonedCount = 0;
                         for (Direction direction : Util.getDirections()) {
                             if (unit.structureGarrison().size() + garrisonedCount == unit.structureMaxCapacity()) {
-                                MapLocation target = getRandomValidLocation(startingMaps.get(Planet.Mars));
+                                MapLocation target = getRandomValidLocation(Planet.Mars);
                                 if (target != null && gc.canLaunchRocket(unit.id(), target)) {
                                     System.out.println("Launching rocket from: " + unit.location().mapLocation() + " to " + target);
                                     gc.launchRocket(unit.id(), target);
@@ -472,7 +488,7 @@ public class Ai {
     private MapLocation findClosestKarbonite(MapLocation startLocation) {
         MapLocation closest = null;
         Long distance = null;
-        for (MapLocation aKarboniteLocation : karboniteLocations) {
+        for (MapLocation aKarboniteLocation : karboniteMap.keySet()) {
             if (distance == null || startLocation.distanceSquaredTo(aKarboniteLocation) < distance) {
                 closest = aKarboniteLocation;
                 distance = startLocation.distanceSquaredTo(aKarboniteLocation);
@@ -550,10 +566,10 @@ public class Ai {
     }
 
     //Get a random passable location from the PlanetMap
-    private MapLocation getRandomValidLocation(PlanetMap planetMap) {
+    private MapLocation getRandomValidLocation(Planet planet) {
         List<MapLocation> passableMapLocations = new LinkedList<>();
-        for (MapLocation mapLocation : passabilityMaps.get(planetMap.getPlanet()).keySet()) {
-            if (passabilityMaps.get(planetMap.getPlanet()).get(mapLocation)) {
+        for (MapLocation mapLocation : passabilityMaps.get(planet).keySet()) {
+            if (passabilityMaps.get(planet).get(mapLocation)) {
                 passableMapLocations.add(mapLocation);
             }
         }
