@@ -37,7 +37,9 @@ public class Ai {
     private void runOnce() {
         ourTeam = gc.team();
         theirTeam = ourTeam == Team.Red ? Team.Blue : Team.Red;
-        karboniteMap = Util.getInitialKarboniteAmounts(gc.startingMap(Planet.Earth));
+        if (planet == Planet.Earth) {
+            karboniteMap = Util.getInitialKarboniteAmounts(gc.startingMap(Planet.Earth));
+        }
         for (Planet planet : Planet.values()) {
             startingMaps.put(planet, gc.startingMap(planet));
             passabilityMaps.put(planet, new HashMap<>());
@@ -94,7 +96,7 @@ public class Ai {
             } else if (myUnitsVc.get(i).location().isOnPlanet(planet)) {
                 myUnits.get(myUnitsVc.get(i).unitType()).add(myUnitsVc.get(i));
             }
-            if (planet == Planet.Mars) {
+            if (planet == Planet.Mars && myUnitsVc.get(i).location().isOnPlanet(Planet.Mars)) {
                 //sense karbonite and add to karboniteMap
                 VecMapLocation sensedLocations = gc.allLocationsWithin(myUnitsVc.get(i).location().mapLocation(), myUnitsVc.get(i).visionRange());
                 //TODO: (optimization) keep track of all sensedLocations and don't do anything for locations we already sensed this turn
