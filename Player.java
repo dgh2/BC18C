@@ -10,8 +10,10 @@ public class Player {
             try {
                 ai.run();
             } catch (Exception e) {
-                System.out.println("Exception caught: " + e.getMessage());
                 e.printStackTrace(System.out);
+            } finally {
+                System.runFinalization();
+                System.gc();
             }
             gc.nextTurn();
         }

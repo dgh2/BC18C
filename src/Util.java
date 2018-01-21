@@ -3,10 +3,12 @@ package src;
 import bc.*;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 //If the method can be written without changing a state or needing anything from gc, it goes in here
 
@@ -63,5 +65,13 @@ class Util {
             }
         }
         return initialKarboniteLocationMap;
+    }
+
+    static Set<MapLocation> getNeighbors(MapLocation center) {
+        Set<MapLocation> neighbors = new HashSet<>();
+        for (Direction direction : getDirections()) {
+            neighbors.add(center.add(direction));
+        }
+        return neighbors;
     }
 }
