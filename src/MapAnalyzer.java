@@ -11,7 +11,7 @@ import java.util.Set;
 public class MapAnalyzer {
     private Map<MapLocation, Boolean> passabilityMap;
     private Map<String, MapNode> connectivityMap = new HashMap<>();
-    private Integer distinctAreaCount = 0;
+    private Map<Integer, Integer> distinctAreaSizes = new HashMap<>();
 
     public MapAnalyzer(Map<MapLocation, Boolean> passabilityMap) {
         this.passabilityMap = passabilityMap;
@@ -19,7 +19,7 @@ public class MapAnalyzer {
     }
 
     public Integer getDistinctAreaCount() {
-        return distinctAreaCount;
+        return distinctAreaSizes.keySet().size();
     }
 
     public boolean isPassable(MapLocation location) {
@@ -35,7 +35,7 @@ public class MapAnalyzer {
     //private, internal methods and classes below
 
     private Map<String, MapNode> generateConnectivityMap() {
-        distinctAreaCount = 0;
+        Integer distinctAreaCount = 0;
         for (MapLocation location : passabilityMap.keySet()) {
             if (passabilityMap.get(location)) {
                 connectivityMap.put(String.valueOf(location), new MapNode());
@@ -50,6 +50,11 @@ public class MapAnalyzer {
                 while (!open.isEmpty()) {
                     open.remove(currentLocation = open.iterator().next());
                     connectivityMap.get(String.valueOf(currentLocation)).setConnectivityId(distinctAreaCount);
+                    if (!distinctAreaSizes.containsKey(distinctAreaCount)) {
+                        distinctAreaSizes.put(distinctAreaCount, 1);
+                    } else {
+                        distinctAreaSizes.put(distinctAreaCount, distinctAreaSizes.get(distinctAreaCount) + 1);
+                    }
 //                    System.out.println(currentLocation + " (current) has Connectivity: " + distinctAreaCount);
                     for (MapLocation neighbor : Util.getNeighbors(currentLocation)) {
                         if (hasNode(neighbor) && getConnectivity(neighbor) == null) {
@@ -61,7 +66,10 @@ public class MapAnalyzer {
                 }
             }
         }
-        System.out.println("Distinct area count: " + distinctAreaCount);
+        System.out.println("Distinct area maps:");
+        for (Map.Entry<Integer, Integer> distinctArea : distinctAreaSizes.entrySet()) {
+            System.out.println(distinctArea.getKey() + " of size " + distinctArea.getValue());
+        }
         return connectivityMap;
     }
 
