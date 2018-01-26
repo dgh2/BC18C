@@ -18,15 +18,6 @@ public class AStar {
         this.mapAnalyzer = mapAnalyzer;
     }
 
-    private boolean cheaperPathExists(AStarNode current, Collection<AStarNode> collection) {
-        for (AStarNode node : collection) {
-            if (String.valueOf(node.getHere()).equals(String.valueOf(current.getHere())) && node.getTotalCost() <= current.getTotalCost()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public LinkedList<Direction> path(MapLocation start, MapLocation goal) {
 //        System.out.println("Pathing from " + start + " to " + goal);
         if (!mapAnalyzer.areLocationsConnected(start, goal)) {
@@ -50,11 +41,8 @@ public class AStar {
             for (Direction direction : Util.getDirections()) {
                 next = current.getNextNode(direction, goal);
                 if (mapAnalyzer.isPassable(next.getHere())
-                        && !cheaperPathExists(next, closed)
-                        && !cheaperPathExists(next, open)
-//                        && !closed.contains(next)
-//                        && !open.contains(next)
-                        ) {
+                        && !closed.contains(next)
+                        && !open.contains(next)) {
                     open.add(next);
                     openedNodeCount++;
 //                    System.out.println("Opening: " + next.getHere() + " cost = " + next.getTotalCost());
@@ -113,14 +101,12 @@ public class AStar {
                 return false;
             }
             AStarNode other = (AStarNode) obj;
-            return getHere().equals(other.getHere())/*
-                    && getDistanceSquaredToGoal().equals(other.getDistanceSquaredToGoal())
-                    && getPath().equals(other.getPath())*/;
+            return getHere().equals(other.getHere());
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(String.valueOf(here)/*, distanceSquaredToGoal, path*/);
+            return Objects.hash(String.valueOf(here));
         }
     }
 }
