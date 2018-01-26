@@ -70,6 +70,10 @@ public class Ai {
         for (Planet planet : Planet.values()) {
             mapAnalyzers.put(planet, new MapAnalyzer(passabilityMaps.get(planet)));
         }
+        AStar aStar = new AStar(mapAnalyzers.get(planet));
+        for (int i = 0; i < 5; i++) {
+            aStar.path(getRandomValidLocation(planet), getRandomValidLocation(planet));
+        }
     }
 
     //Set variables once per round to prevent excessive calls to gc
@@ -606,8 +610,9 @@ public class Ai {
                 passableMapLocations.add(mapLocation);
             }
         }
+        //noinspection UnnecessaryLocalVariable
         MapLocation randomValid = passableMapLocations.get(Util.getRandomInt(passableMapLocations.size()) - 1);
-        System.out.println("Returning valid random location: " + randomValid);
+//        System.out.println("Returning valid random location: " + randomValid);
         return randomValid;
     }
 }
