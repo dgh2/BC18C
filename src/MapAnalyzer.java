@@ -68,7 +68,7 @@ public class MapAnalyzer {
         }
         System.out.println("Distinct area maps:");
         for (Map.Entry<Integer, Integer> distinctArea : distinctAreaSizes.entrySet()) {
-            System.out.println(distinctArea.getKey() + " of size " + distinctArea.getValue());
+            System.out.println("Area " + distinctArea.getKey() + " has size " + distinctArea.getValue());
         }
         return connectivityMap;
     }
