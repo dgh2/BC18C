@@ -1,7 +1,6 @@
 package src;
 
-import bc.Direction;
-import bc.MapLocation;
+import bc.*;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -12,90 +11,93 @@ import java.util.PriorityQueue;
 import java.util.Set;
 
 public class AStar {
-    private MapAnalyzer mapAnalyzer;
+    private final MapAnalyzer mapAnalyzer;
+
+    private MapLocation goal;
 
     public AStar(MapAnalyzer mapAnalyzer) {
         this.mapAnalyzer = mapAnalyzer;
     }
 
     public LinkedList<Direction> path(MapLocation start, MapLocation goal) {
+        Long startTime = System.nanoTime();
 //        System.out.println("Pathing from " + start + " to " + goal);
         if (!mapAnalyzer.areLocationsConnected(start, goal)) {
             System.out.println("Path: No path exists from " + start + " to " + goal);
             return null;
         }
+        this.goal = goal;
         PriorityQueue<AStarNode> open = new PriorityQueue<>(Comparator.comparing(AStarNode::getTotalCost));
         Set<AStarNode> closed = new HashSet<>();
         AStarNode current;
-        AStarNode next;
         Long openedNodeCount = 0L;
-        Long expandedNodeCount = 0L;
-        open.add(new AStarNode(null, start, goal));
+        open.add(new AStarNode(null, start));
         openedNodeCount++;
-//        System.out.println("Opening: " + start + " cost = " + start.distanceSquaredTo(goal));
+//        System.out.println("Opening: " + start + " cost = " + start.getDistanceTo(goal));
         do {
             current = open.poll();
             closed.add(current);
 //            System.out.println("Expanding: " + current.getHere() + " cost = " + current.getTotalCost());
-            expandedNodeCount++;
+//            Direction currentDirection = current.getPath().isEmpty() ? null : current.getPath().getLast();
             for (Direction direction : Util.getDirections()) {
-                next = current.getNextNode(direction, goal);
+                AStarNode next = current.getNextNode(direction);
                 if (mapAnalyzer.isPassable(next.getHere())
-                        && !cheaperPathExists(next, closed)
-                        && !cheaperPathExists(next, open)) {
+                        && noCheaperPathExists(next, closed)
+                        && noCheaperPathExists(next, open)) {
                     open.add(next);
                     openedNodeCount++;
 //                    System.out.println("Opening: " + next.getHere() + " cost = " + next.getTotalCost());
                 }
             }
-        } while (!open.isEmpty() && current.getDistanceSquaredToGoal() > 0);
+        } while (!open.isEmpty() && current.getDistanceToGoal() > 0);
         //output the path to logs
         System.out.print("Path from " + start + " to " + goal + ":");
         for (Direction step : current.getPath()) {
             System.out.print(" " + step.name());
         }
-        System.out.println(" (total opened/expanded nodes: " + openedNodeCount + "/" + expandedNodeCount + ")");
+        System.out.println(" (total expanded/opened nodes: " + closed.size() + "/" + openedNodeCount + ")");
+        System.out.println("Total pathing time: " + Math.round((System.nanoTime() - startTime)*0.000001) + "ms");
         return current.getPath();
     }
 
-    private boolean cheaperPathExists(AStarNode current, Collection<AStarNode> collection) {
+    private boolean noCheaperPathExists(AStarNode current, Collection<AStarNode> collection) {
         for (AStarNode node : collection) {
-            if (String.valueOf(node.getHere()).equals(String.valueOf(current.getHere())) && node.getTotalCost() <= current.getTotalCost()) {
-                return true;
+            if (current.equals(node) && node.getTotalCost() <= current.getTotalCost()) {
+                return false;
             }
         }
-        return false;
+        return true;
     }
 
     private class AStarNode {
         private MapLocation here;
         private LinkedList<Direction> path = new LinkedList<>();
-        private Long distanceSquaredToGoal;
-        private Long totalCost;
+        private double distanceToGoal;
+        private double totalCost;
 
-        AStarNode(AStarNode parent, MapLocation here, MapLocation goal) {
+        AStarNode(AStarNode parent, MapLocation here) {
             this.here = here;
-            distanceSquaredToGoal = here.distanceSquaredTo(goal);
+            distanceToGoal = Util.distanceBetween(here, goal);
             if (parent != null) {
                 path.addAll(parent.getPath());
                 path.add(parent.getHere().directionTo(here));
             }
-            totalCost = path.size() + distanceSquaredToGoal;
+            totalCost = path.size() + distanceToGoal;
         }
 
-        AStarNode getNextNode(Direction direction, MapLocation goal) {
-            return new AStarNode(this, getHere().add(direction), goal);
+        AStarNode getNextNode(Direction direction) {
+            return new AStarNode(this, getHere().add(direction));
         }
 
         MapLocation getHere() {
             return here;
         }
 
-        Long getDistanceSquaredToGoal() {
-            return distanceSquaredToGoal;
+        double getDistanceToGoal() {
+            return distanceToGoal;
         }
 
-        Long getTotalCost() {
+        double getTotalCost() {
             return totalCost;
         }
 

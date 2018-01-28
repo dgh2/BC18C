@@ -14,7 +14,7 @@ import java.util.Set;
 
 @SuppressWarnings("WeakerAccess")
 class Util {
-    private static Random rand = new Random(1337);
+    private static Random rand = new Random();
     private static List<Direction> directions;
 
     //Only runs once, used to instantiate static variables such as directions
@@ -30,6 +30,10 @@ class Util {
 
     //Do not allow creating instances of this class
     private Util() {
+    }
+
+    static void reseedRandom(long seed) {
+        rand = new Random(seed);
     }
 
     //Inclusive, so getRandomInt(3) returns 1, 2, or 3
@@ -73,5 +77,16 @@ class Util {
             neighbors.add(center.add(direction));
         }
         return neighbors;
+    }
+
+    static double distanceBetween(MapLocation a, MapLocation b) {
+        long dx = Math.abs(a.getX() - b.getX());
+        long dy = Math.abs(a.getY() - b.getY());
+        return Math.max(dx, dy);
+        //Diagonal distance (uniform cost) would actually be "return Math.max(dx, dy);" but paths end up jagged and extra nodes are opened
+//        long min = Math.min(dx, dy);
+//        long max = Math.max(dx, dy);
+//        return 1.41421356237 * min + max - min;
+        //act as if diagonal movement costs sqrt(2) = 1.41421356237
     }
 }

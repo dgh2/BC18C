@@ -36,6 +36,7 @@ public class Ai {
 
     //initialization method that should only run on the first turn
     private void runOnce() {
+        Util.reseedRandom(1337);
         planet = gc.planet();
         ourTeam = gc.team();
         theirTeam = ourTeam == Team.Red ? Team.Blue : Team.Red;
@@ -71,6 +72,7 @@ public class Ai {
             mapAnalyzers.put(planet, new MapAnalyzer(passabilityMaps.get(planet)));
         }
         AStar aStar = new AStar(mapAnalyzers.get(planet));
+        Util.reseedRandom(9001); // get the same set of random valid locations each time
         for (int i = 0; i < 5; i++) {
             aStar.path(getRandomValidLocation(planet), getRandomValidLocation(planet));
         }
