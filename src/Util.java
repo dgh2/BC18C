@@ -79,14 +79,106 @@ class Util {
         return neighbors;
     }
 
-    static double distanceBetween(MapLocation a, MapLocation b) {
-        long dx = Math.abs(a.getX() - b.getX());
-        long dy = Math.abs(a.getY() - b.getY());
-        return Math.max(dx, dy);
-        //Diagonal distance (uniform cost) would actually be "return Math.max(dx, dy);" but paths end up jagged and extra nodes are opened
+//    static double getPathCost(List<Direction> path) {
+//        //Uniform cost
+//        return path.size();
+//    }
+//
+//    static double distanceBetween(MapLocation a, MapLocation b) {
+//        //Uniform cost
+//        long dx = Math.abs(a.getX() - b.getX());
+//        long dy = Math.abs(a.getY() - b.getY());
+//        return Math.max(dx, dy);
+//    }
+//
+//    static double getPathCost(List<Direction> path) {
+//        //Diagonals cost sqrt(2) extra
+//        double pathCost = 0;
+//        for (Direction step : path) {
+//            switch (step) {
+//                case North:
+//                case East:
+//                case South:
+//                case West:
+//                    pathCost++;
+//                    break;
+//                case Northeast:
+//                case Southeast:
+//                case Southwest:
+//                case Northwest:
+//                    pathCost += 1.41421356237;
+//                    break;
+//                case Center:
+//                    break;
+//            }
+//        }
+//        return pathCost;
+//    }
+//
+//    static double distanceBetween(MapLocation a, MapLocation b) {
+//        //Diagonals cost sqrt(2) extra
+//        long dx = Math.abs(a.getX() - b.getX());
+//        long dy = Math.abs(a.getY() - b.getY());
 //        long min = Math.min(dx, dy);
 //        long max = Math.max(dx, dy);
 //        return 1.41421356237 * min + max - min;
-        //act as if diagonal movement costs sqrt(2) = 1.41421356237
+//    }
+//
+    static double getPathCost(List<Direction> path) {
+        //Turns cost sqrt(2) extra
+        double pathCost = 0;
+        Direction previousStep = null;
+        for (Direction step : path) {
+            if (step.equals(previousStep)) {
+                pathCost++;
+            } else {
+                pathCost += 1.41421356237;
+            }
+            previousStep = step;
+        }
+        return pathCost;
     }
+
+    static double distanceBetween(MapLocation a, MapLocation b) {
+        //Turns cost sqrt(2) extra
+        long dx = Math.abs(a.getX() - b.getX());
+        long dy = Math.abs(a.getY() - b.getY());
+        return Math.max(dx, dy) + (Math.min(dx, dy) == 0 ? 0 : 1.41421356237);
+    }
+//
+//    static double getPathCost(List<Direction> path) {
+//        //Euclidean distance squared - Beware of infinite loop
+//        long dx = 0;
+//        long dy = 0;
+//        for (Direction step : path) {
+//            switch (step) {
+//                case North:
+//                case Northeast:
+//                case Northwest:
+//                case South:
+//                case Southeast:
+//                case Southwest:
+//                    dy++;
+//                default:
+//                    break;
+//            }
+//            switch (step) {
+//                case Northeast:
+//                case East:
+//                case Southeast:
+//                case Northwest:
+//                case West:
+//                case Southwest:
+//                    dx++;
+//                default:
+//                    break;
+//            }
+//        }
+//        return (dx * dx) + (dy * dy);
+//    }
+//
+//    static double distanceBetween(MapLocation a, MapLocation b) {
+//        //Euclidean distance squared - Beware of infinite loop
+//        return a.distanceSquaredTo(b);
+//    }
 }

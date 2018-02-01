@@ -20,7 +20,6 @@ public class AStar {
     }
 
     public LinkedList<Direction> path(MapLocation start, MapLocation goal) {
-        Long startTime = System.nanoTime();
 //        System.out.println("Pathing from " + start + " to " + goal);
         if (!mapAnalyzer.areLocationsConnected(start, goal)) {
             System.out.println("Path: No path exists from " + start + " to " + goal);
@@ -33,7 +32,7 @@ public class AStar {
         Long openedNodeCount = 0L;
         open.add(new AStarNode(null, start));
         openedNodeCount++;
-//        System.out.println("Opening: " + start + " cost = " + start.getDistanceTo(goal));
+//        System.out.println("Opening: " + start + " cost = " + Util.distanceBetween(start, goal));
         do {
             current = open.poll();
             closed.add(current);
@@ -56,7 +55,6 @@ public class AStar {
             System.out.print(" " + step.name());
         }
         System.out.println(" (total expanded/opened nodes: " + closed.size() + "/" + openedNodeCount + ")");
-        System.out.println("Total pathing time: " + Math.round((System.nanoTime() - startTime)*0.000001) + "ms");
         return current.getPath();
     }
 
@@ -82,7 +80,7 @@ public class AStar {
                 path.addAll(parent.getPath());
                 path.add(parent.getHere().directionTo(here));
             }
-            totalCost = path.size() + distanceToGoal;
+            totalCost = Util.getPathCost(path) + distanceToGoal;
         }
 
         AStarNode getNextNode(Direction direction) {
@@ -111,7 +109,7 @@ public class AStar {
                 return false;
             }
             AStarNode other = (AStarNode) obj;
-            return getHere().equals(other.getHere());
+            return String.valueOf(getHere()).equals(String.valueOf(other.getHere()));
         }
 
         @Override

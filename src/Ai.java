@@ -479,10 +479,10 @@ public class Ai {
 
     //Move a unit toward the goal location
     private boolean moveTowards(Unit unit, MapLocation goal) throws IllegalArgumentException {
-        if (unit.movementHeat() != 0) {
-            return false;
+        if (unit.unitType() == UnitType.Factory || unit.unitType() == UnitType.Rocket) {
+            throw new IllegalArgumentException("Unit " + unit.id() + " of type " + unit.unitType().name() + " cannot move");
         }
-        if (!unit.location().isOnPlanet(planet)) {
+        if (unit.movementHeat() != 0) {
             return false;
         }
         if (!mapAnalyzers.get(goal.getPlanet()).areLocationsConnected(unit.location().mapLocation(), goal)) {
@@ -492,13 +492,6 @@ public class Ai {
         }
         //System.out.println("Attempting to moveTowards: " + unit.id() + " at "
         //        + unit.location().mapLocation() + " to " + goal);
-        if (unit.location().mapLocation().getPlanet() != goal.getPlanet()) {
-            throw new IllegalArgumentException("Cannot path from "
-                    + unit.location().mapLocation().getPlanet().name() + " to " + goal.getPlanet().name());
-        }
-        if (unit.unitType() == UnitType.Factory || unit.unitType() == UnitType.Rocket) {
-            throw new IllegalArgumentException("Unit " + unit.id() + " of type " + unit.unitType().name() + " cannot move");
-        }
         Direction heading = unit.location().mapLocation().directionTo(goal);
         return performMove(unit, heading)
                 || performMove(unit, bc.bcDirectionRotateRight(heading))
@@ -509,13 +502,16 @@ public class Ai {
 
     //move a unit in the given direction
     private boolean performMove(Unit unit, Direction heading) {
+        if (unit.unitType() == UnitType.Factory || unit.unitType() == UnitType.Rocket) {
+            throw new IllegalArgumentException("Unit " + unit.id() + " of type " + unit.unitType().name() + " cannot move");
+        }
         if (unit.movementHeat() != 0) {
             return false;
         }
-        if (!unit.location().isOnPlanet(planet)) {
-            return false;
-        }
-        if (gc.isMoveReady(unit.id()) && gc.canMove(unit.id(), heading)) {
+        if (gc.isMoveReady(unit.id())
+                && mapAnalyzers.get(unit.location().mapLocation().getPlanet()).isPassable(unit.location().mapLocation().add(heading))
+                && gc.isOccupiable(unit.location().mapLocation().add(heading)) > 0
+                && gc.canMove(unit.id(), heading)) {
             gc.moveRobot(unit.id(), heading);
             //System.out.println("performMove result: " + unit.id() + " at "
             //        + unit.location().mapLocation() + " moved " + heading.name());
